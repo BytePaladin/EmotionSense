@@ -14,7 +14,10 @@ def analyze_image(file_bytes: bytes):
     if not HF_API_TOKEN:
         raise ValueError("HF_API_TOKEN environment variable is missing.")
         
-    headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
+    headers = {
+        "Authorization": f"Bearer {HF_API_TOKEN}",
+        "Content-Type": "application/octet-stream"
+    }
     
     # Retry mechanism in case model is loading
     import time
