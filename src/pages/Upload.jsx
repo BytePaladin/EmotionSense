@@ -1,13 +1,14 @@
 import UploadArea from '../features/upload/UploadArea';
+import { Box, Typography } from '@mui/material';
 
 export default function Upload() {
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold text-dark-100">Upload Media</h2>
-        <p className="text-dark-400">Upload images or videos for advanced emotional analysis.</p>
-      </div>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <Box>
+        <Typography variant="h5" component="h2" fontWeight="bold" sx={{ color: '#f8fafc' }}>Upload Media</Typography>
+        <Typography variant="body2" sx={{ color: '#94a3b8' }}>Upload images or videos for advanced emotional analysis.</Typography>
+      </Box>
       <UploadArea />
-    </div>
+    </Box>
   );
 }

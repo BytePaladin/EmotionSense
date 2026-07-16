@@ -4,8 +4,8 @@ import api from '../api/axios';
 import { useToast } from '../hooks/useToast';
 import DashboardOverview from '../features/dashboard/DashboardOverview';
 import { PageLoader } from '../components/ui/LoadingSpinner';
-import Button from '../components/ui/Button';
-import { Plus } from 'lucide-react';
+import { Box, Typography, Button } from '@mui/material';
+import { Add as AddIcon } from '@mui/icons-material';
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
@@ -30,15 +30,21 @@ export default function Dashboard() {
   if (loading) return <PageLoader />;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-dark-100">Analytics Overview</h2>
-          <p className="text-dark-400">Insights from all your uploaded media.</p>
-        </div>
-        <Button onClick={() => navigate('/upload')}><Plus className="w-4 h-4 mr-2" />New Analysis</Button>
-      </div>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2 }}>
+        <Box>
+          <Typography variant="h5" component="h2" fontWeight="bold" sx={{ color: '#f8fafc' }}>
+            Analytics Overview
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#94a3b8' }}>
+            Insights from all your uploaded media.
+          </Typography>
+        </Box>
+        <Button variant="contained" sx={{ backgroundColor: '#6366f1', '&:hover': { backgroundColor: '#4f46e5' } }} onClick={() => navigate('/upload')} startIcon={<AddIcon />}>
+          New Analysis
+        </Button>
+      </Box>
       <DashboardOverview stats={stats} />
-    </div>
+    </Box>
   );
 }

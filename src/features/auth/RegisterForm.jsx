@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, User } from 'lucide-react';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { Mail, Lock, Person } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import { validatePassword, getPasswordStrength } from '../../utils/validators';
-import Input from '../../components/ui/Input';
-import Button from '../../components/ui/Button';
+import { Box, Button, TextField, Typography, InputAdornment, Link, LinearProgress } from '@mui/material';
 
 export default function RegisterForm() {
   const [formData, setFormData] = useState({ fullName: '', email: '', password: '', confirmPassword: '' });
@@ -38,35 +37,35 @@ export default function RegisterForm() {
   const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <Input label="Full Name" name="fullName" icon={User} value={formData.fullName} onChange={handleChange} placeholder="John Doe" required />
-      <Input label="Email Address" type="email" name="email" icon={Mail} value={formData.email} onChange={handleChange} placeholder="john@example.com" required />
-      <div>
-        <Input label="Password" type="password" name="password" icon={Lock} value={formData.password} onChange={handleChange} placeholder="Create a strong password" required />
+    <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+      <TextField label="Full Name" name="fullName" value={formData.fullName} onChange={handleChange} placeholder="John Doe" required fullWidth InputProps={{ startAdornment: <InputAdornment position="start"><Person /></InputAdornment> }} />
+      <TextField label="Email Address" type="email" name="email" value={formData.email} onChange={handleChange} placeholder="john@example.com" required fullWidth InputProps={{ startAdornment: <InputAdornment position="start"><Mail /></InputAdornment> }} />
+      <Box>
+        <TextField label="Password" type="password" name="password" value={formData.password} onChange={handleChange} placeholder="Create a strong password" required fullWidth InputProps={{ startAdornment: <InputAdornment position="start"><Lock /></InputAdornment> }} />
         {formData.password && (
-          <div className="mt-2 flex items-center gap-2">
-            <div className="flex-1 h-1.5 bg-dark-700 rounded-full overflow-hidden">
-              <div className="h-full transition-all duration-300" style={{ width: `${(pwdStrength.level / 5) * 100}%`, backgroundColor: pwdStrength.color }} />
-            </div>
-            <span className="text-xs" style={{ color: pwdStrength.color }}>{pwdStrength.label}</span>
-          </div>
+          <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ flex: 1 }}>
+              <LinearProgress variant="determinate" value={(pwdStrength.level / 5) * 100} sx={{ height: 6, borderRadius: 3, backgroundColor: 'grey.800', '& .MuiLinearProgress-bar': { backgroundColor: pwdStrength.color } }} />
+            </Box>
+            <Typography variant="caption" sx={{ color: pwdStrength.color }}>{pwdStrength.label}</Typography>
+          </Box>
         )}
-        <div className="mt-2 text-xs text-dark-400 space-y-1 pl-1">
-          <p>Password must contain:</p>
-          <ul className="list-disc pl-4 space-y-0.5">
-            <li className={formData.password.length >= 8 ? 'text-green-500' : ''}>At least 8 characters</li>
-            <li className={/[A-Z]/.test(formData.password) ? 'text-green-500' : ''}>One uppercase letter</li>
-            <li className={/[a-z]/.test(formData.password) ? 'text-green-500' : ''}>One lowercase letter</li>
-            <li className={/[0-9]/.test(formData.password) ? 'text-green-500' : ''}>One digit</li>
-            <li className={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password) ? 'text-green-500' : ''}>One special character</li>
-          </ul>
-        </div>
-      </div>
-      <Input label="Confirm Password" type="password" name="confirmPassword" icon={Lock} value={formData.confirmPassword} onChange={handleChange} placeholder="Confirm your password" required />
-      <Button type="submit" loading={loading} className="w-full mt-2">Create Account</Button>
-      <p className="text-center text-dark-400 text-sm mt-6">
-        Already have an account? <Link to="/login" className="text-primary-500 hover:text-primary-400 font-medium">Sign in</Link>
-      </p>
-    </form>
+        <Box sx={{ mt: 1, pl: 1 }}>
+          <Typography variant="caption" color="text.secondary">Password must contain:</Typography>
+          <Box component="ul" sx={{ pl: 2, m: 0, '& li': { fontSize: '0.75rem' } }}>
+            <Box component="li" sx={{ color: formData.password.length >= 8 ? 'success.main' : 'text.secondary' }}>At least 8 characters</Box>
+            <Box component="li" sx={{ color: /[A-Z]/.test(formData.password) ? 'success.main' : 'text.secondary' }}>One uppercase letter</Box>
+            <Box component="li" sx={{ color: /[a-z]/.test(formData.password) ? 'success.main' : 'text.secondary' }}>One lowercase letter</Box>
+            <Box component="li" sx={{ color: /[0-9]/.test(formData.password) ? 'success.main' : 'text.secondary' }}>One digit</Box>
+            <Box component="li" sx={{ color: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password) ? 'success.main' : 'text.secondary' }}>One special character</Box>
+          </Box>
+        </Box>
+      </Box>
+      <TextField label="Confirm Password" type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} placeholder="Confirm your password" required fullWidth InputProps={{ startAdornment: <InputAdornment position="start"><Lock /></InputAdornment> }} />
+      <Button type="submit" disabled={loading} variant="contained" fullWidth sx={{ mt: 1, py: 1.5 }}>Create Account</Button>
+      <Typography align="center" variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+        Already have an account? <Link component={RouterLink} to="/login" sx={{ fontWeight: 'medium' }}>Sign in</Link>
+      </Typography>
+    </Box>
   );
 }

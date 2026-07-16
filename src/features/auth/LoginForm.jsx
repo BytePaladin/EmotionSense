@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock } from 'lucide-react';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { Mail, Lock } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
-import Input from '../../components/ui/Input';
-import Button from '../../components/ui/Button';
+import { Box, Button, TextField, Typography, InputAdornment, Link } from '@mui/material';
 
 export default function LoginForm() {
   const [email, setEmail] = useState('');
@@ -30,13 +29,13 @@ export default function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <Input label="Email Address" type="email" icon={Mail} value={email} onChange={e => setEmail(e.target.value)} placeholder="Enter your email" required />
-      <Input label="Password" type="password" icon={Lock} value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter your password" required />
-      <Button type="submit" loading={loading} className="w-full">Sign In</Button>
-      <p className="text-center text-dark-400 text-sm mt-6">
-        Don't have an account? <Link to="/register" className="text-primary-500 hover:text-primary-400 font-medium">Create one</Link>
-      </p>
-    </form>
+    <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <TextField label="Email Address" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Enter your email" required fullWidth InputProps={{ startAdornment: <InputAdornment position="start"><Mail /></InputAdornment> }} />
+      <TextField label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter your password" required fullWidth InputProps={{ startAdornment: <InputAdornment position="start"><Lock /></InputAdornment> }} />
+      <Button type="submit" disabled={loading} variant="contained" fullWidth sx={{ py: 1.5 }}>Sign In</Button>
+      <Typography align="center" variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+        Don't have an account? <Link component={RouterLink} to="/register" sx={{ fontWeight: 'medium' }}>Create one</Link>
+      </Typography>
+    </Box>
   );
 }

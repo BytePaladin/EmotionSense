@@ -1,6 +1,7 @@
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { EMOTION_COLORS } from '../../utils/emotionColors';
+import { Box } from '@mui/material';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -24,5 +25,5 @@ export default function EmotionPieChart({ stats }) {
     }
   };
 
-  return <div className="h-64"><Doughnut data={data} options={options} /></div>;
+  return <Box sx={{ height: 256 }}><Doughnut data={data} options={options} /></Box>;
 }

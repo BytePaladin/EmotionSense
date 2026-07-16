@@ -1,9 +1,9 @@
-import { Activity, Clock, ShieldCheck, Zap } from 'lucide-react';
-import Card from '../../components/ui/Card';
+import { ShowChart, AccessTime, Verified, Bolt } from '@mui/icons-material';
 import EmotionPieChart from '../../components/charts/EmotionPieChart';
 import EmotionTimeline from '../../components/charts/EmotionTimeline';
 import ConfidenceTrend from '../../components/charts/ConfidenceTrend';
 import { getEmotionLabel, getEmotionColor, getEmotionEmoji } from '../../utils/emotionColors';
+import { Box, Card as MuiCard, Typography, Grid, Stack, Divider, LinearProgress } from '@mui/material';
 
 export default function AnalysisResult({ data }) {
   if (!data) return null;
@@ -11,79 +11,98 @@ export default function AnalysisResult({ data }) {
   const dominantColor = getEmotionColor(file.dominant_emotion);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <Card className="flex flex-col md:flex-row gap-8 items-center border-l-4" style={{ borderLeftColor: dominantColor }}>
-        <div className="flex-1 space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-dark-800 border border-dark-700">
-            <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: dominantColor }} />
-            <span className="text-sm font-medium text-dark-200">Analysis Complete</span>
-          </div>
-          <h2 className="text-3xl font-bold text-dark-100">{file.file_name}</h2>
-          <div className="flex flex-wrap gap-4 text-sm text-dark-400">
-            <span className="flex items-center gap-1"><Clock className="w-4 h-4"/> {new Date(file.upload_time).toLocaleString()}</span>
-            <span className="flex items-center gap-1 border-l border-dark-700 pl-4"><Activity className="w-4 h-4"/> {file.total_detections} frames analyzed</span>
-          </div>
-        </div>
-        <div className="w-full md:w-auto flex items-center justify-between gap-8 p-6 bg-dark-800/50 rounded-2xl border border-dark-700/50">
-          <div className="text-center">
-            <p className="text-dark-400 text-sm mb-1">Dominant</p>
-            <p className="text-2xl font-bold" style={{ color: dominantColor }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <MuiCard sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 4, alignItems: 'center', p: 3, borderLeft: '4px solid', borderLeftColor: dominantColor, borderRadius: 3 }}>
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.5, borderRadius: 4, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider', alignSelf: 'flex-start' }}>
+            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: dominantColor, animation: 'pulse 2s infinite' }} />
+            <Typography variant="caption" fontWeight="medium" color="text.secondary">Analysis Complete</Typography>
+          </Box>
+          <Typography variant="h4" fontWeight="bold">{file.file_name}</Typography>
+          <Stack direction="row" flexWrap="wrap" gap={2} alignItems="center" color="text.secondary">
+            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><AccessTime fontSize="small"/> {new Date(file.upload_time).toLocaleString()}</Typography>
+            <Divider orientation="vertical" flexItem />
+            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><ShowChart fontSize="small"/> {file.total_detections} frames analyzed</Typography>
+          </Stack>
+        </Box>
+        <Box sx={{ width: { xs: '100%', md: 'auto' }, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, p: 3, bgcolor: 'action.hover', borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+          <Box textAlign="center">
+            <Typography variant="body2" color="text.secondary" mb={0.5}>Dominant</Typography>
+            <Typography variant="h5" fontWeight="bold" sx={{ color: dominantColor }}>
               {getEmotionEmoji(file.dominant_emotion)} {getEmotionLabel(file.dominant_emotion)}
-            </p>
-          </div>
-          <div className="w-px h-12 bg-dark-700" />
-          <div className="text-center">
-            <p className="text-dark-400 text-sm mb-1">Confidence</p>
-            <p className="text-2xl font-bold text-cyan-400">{file.average_confidence}%</p>
-          </div>
-        </div>
-      </Card>
+            </Typography>
+          </Box>
+          <Divider orientation="vertical" flexItem sx={{ height: 48, alignSelf: 'center' }} />
+          <Box textAlign="center">
+            <Typography variant="body2" color="text.secondary" mb={0.5}>Confidence</Typography>
+            <Typography variant="h5" fontWeight="bold" color="info.main">{file.average_confidence}%</Typography>
+          </Box>
+        </Box>
+      </MuiCard>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1 flex flex-col">
-          <h3 className="text-lg font-semibold text-dark-100 mb-6 flex items-center gap-2"><div className="w-2 h-6 bg-primary-500 rounded-full"/>Distribution</h3>
-          <div className="flex-1 flex items-center justify-center"><EmotionPieChart stats={file} /></div>
-        </Card>
+      <Grid container spacing={3}>
+        <Grid item xs={12} lg={4}>
+          <MuiCard sx={{ p: 3, display: 'flex', flexDirection: 'column', height: '100%', borderRadius: 3 }}>
+            <Stack direction="row" alignItems="center" gap={1} mb={3}>
+              <Box sx={{ width: 8, height: 24, bgcolor: 'primary.main', borderRadius: 4 }} />
+              <Typography variant="h6" fontWeight="semibold">Distribution</Typography>
+            </Stack>
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EmotionPieChart stats={file} /></Box>
+          </MuiCard>
+        </Grid>
         
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <h3 className="text-lg font-semibold text-dark-100 mb-6 flex items-center gap-2"><div className="w-2 h-6 bg-purple-500 rounded-full"/>Emotion Timeline</h3>
-            <EmotionTimeline detections={detections} />
-          </Card>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="bg-gradient-to-br from-dark-800 to-dark-900">
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-cyan-500/10 rounded-xl text-cyan-400"><ShieldCheck className="w-6 h-6"/></div>
-                <div>
-                  <p className="text-dark-400 text-sm">Stability Score</p>
-                  <div className="flex items-end gap-2 mt-1">
-                    <h4 className="text-3xl font-bold text-dark-100">{file.stability_score}</h4>
-                    <span className="text-sm text-dark-500 mb-1">/ 100</span>
-                  </div>
-                  <p className="text-xs text-dark-500 mt-2">Measures emotion consistency over time.</p>
-                </div>
-              </div>
-            </Card>
-            <Card className="bg-gradient-to-br from-dark-800 to-dark-900">
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-primary-500/10 rounded-xl text-primary-400"><Zap className="w-6 h-6"/></div>
-                <div className="w-full">
-                  <p className="text-dark-400 text-sm flex justify-between">Processing Status <span className="text-primary-400">Complete</span></p>
-                  <div className="w-full h-2 bg-dark-700 rounded-full mt-3 overflow-hidden">
-                    <div className="h-full bg-primary-500 w-full" />
-                  </div>
-                  <p className="text-xs text-dark-500 mt-2">Analyzed {file.file_size > 1048576 ? (file.file_size/1048576).toFixed(1) + ' MB' : (file.file_size/1024).toFixed(0) + ' KB'} in {(detections.length * 0.15).toFixed(1)}s</p>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </div>
-      </div>
+        <Grid item xs={12} lg={8}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <MuiCard sx={{ p: 3, borderRadius: 3 }}>
+              <Stack direction="row" alignItems="center" gap={1} mb={3}>
+                <Box sx={{ width: 8, height: 24, bgcolor: 'secondary.main', borderRadius: 4 }} />
+                <Typography variant="h6" fontWeight="semibold">Emotion Timeline</Typography>
+              </Stack>
+              <EmotionTimeline detections={detections} />
+            </MuiCard>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <MuiCard sx={{ p: 3, borderRadius: 3, background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.1) 100%)' }}>
+                  <Stack direction="row" alignItems="flex-start" gap={2}>
+                    <Box sx={{ p: 1.5, bgcolor: 'info.main', color: 'info.contrastText', borderRadius: 2, opacity: 0.9 }}><Verified /></Box>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">Stability Score</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, mt: 0.5 }}>
+                        <Typography variant="h4" fontWeight="bold">{file.stability_score}</Typography>
+                        <Typography variant="body2" color="text.disabled" mb={0.5}>/ 100</Typography>
+                      </Box>
+                      <Typography variant="caption" color="text.secondary" display="block" mt={1}>Measures emotion consistency over time.</Typography>
+                    </Box>
+                  </Stack>
+                </MuiCard>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <MuiCard sx={{ p: 3, borderRadius: 3, background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.1) 100%)' }}>
+                  <Stack direction="row" alignItems="flex-start" gap={2}>
+                    <Box sx={{ p: 1.5, bgcolor: 'primary.main', color: 'primary.contrastText', borderRadius: 2, opacity: 0.9 }}><Bolt /></Box>
+                    <Box sx={{ width: '100%' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography variant="body2" color="text.secondary">Processing Status</Typography>
+                        <Typography variant="body2" color="primary.main">Complete</Typography>
+                      </Box>
+                      <LinearProgress variant="determinate" value={100} sx={{ height: 8, borderRadius: 4 }} />
+                      <Typography variant="caption" color="text.secondary" display="block" mt={1}>Analyzed {file.file_size > 1048576 ? (file.file_size/1048576).toFixed(1) + ' MB' : (file.file_size/1024).toFixed(0) + ' KB'} in {(detections.length * 0.15).toFixed(1)}s</Typography>
+                    </Box>
+                  </Stack>
+                </MuiCard>
+              </Grid>
+            </Grid>
+          </Box>
+        </Grid>
+      </Grid>
       
-      <Card>
-         <h3 className="text-lg font-semibold text-dark-100 mb-6 flex items-center gap-2"><div className="w-2 h-6 bg-cyan-500 rounded-full"/>Confidence Trend</h3>
+      <MuiCard sx={{ p: 3, borderRadius: 3 }}>
+         <Stack direction="row" alignItems="center" gap={1} mb={3}>
+           <Box sx={{ width: 8, height: 24, bgcolor: 'info.main', borderRadius: 4 }} />
+           <Typography variant="h6" fontWeight="semibold">Confidence Trend</Typography>
+         </Stack>
          <ConfidenceTrend detections={detections} />
-      </Card>
-    </div>
+      </MuiCard>
+    </Box>
   );
 }

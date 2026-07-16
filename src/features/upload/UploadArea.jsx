@@ -1,12 +1,10 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UploadCloud, FileVideo, FileImage, X, Activity } from 'lucide-react';
+import { CloudUpload, VideoFile, Image as ImageIcon, Close, Insights } from '@mui/icons-material';
 import api from '../../api/axios';
 import { useToast } from '../../hooks/useToast';
 import { validateFile } from '../../utils/validators';
-import Button from '../../components/ui/Button';
-import Card from '../../components/ui/Card';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { Box, Button, Typography, IconButton, LinearProgress, Card as MuiCard, Stack } from '@mui/material';
 
 export default function UploadArea() {
   const [file, setFile] = useState(null);
@@ -74,62 +72,73 @@ export default function UploadArea() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+    <Box sx={{ maxWidth: 800, mx: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
       {!file ? (
-        <Card className={`border-2 border-dashed ${isDragging ? 'border-primary-500 bg-primary-500/5' : 'border-dark-600/50 hover:border-dark-500 hover:bg-dark-800/30'} transition-all duration-300`}>
-          <div className="py-16 px-4 text-center" onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}>
-            <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 transition-transform duration-300 ${isDragging ? 'bg-primary-500/20 scale-110' : 'bg-dark-700'}`}>
-              <UploadCloud className={`w-10 h-10 ${isDragging ? 'text-primary-400' : 'text-dark-400'}`} />
-            </div>
-            <h3 className="text-xl font-semibold text-dark-100 mb-2">Drag & Drop your media here</h3>
-            <p className="text-dark-400 text-sm max-w-md mx-auto mb-8">Support for JPG, PNG, MP4, MOV. Max file size is 20MB.</p>
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/jpeg,image/png,image/jpg,video/mp4,video/quicktime,video/x-msvideo" onChange={e => handleFileSelect(e.target.files[0])} />
-            <Button onClick={() => fileInputRef.current?.click()} size="lg">Browse Files</Button>
-          </div>
-        </Card>
+        <MuiCard 
+          onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
+          sx={{ 
+            border: '2px dashed', 
+            borderColor: isDragging ? 'primary.main' : 'divider', 
+            bgcolor: isDragging ? 'action.hover' : 'background.paper',
+            transition: 'all 0.3s',
+            p: 6,
+            textAlign: 'center',
+            cursor: 'pointer',
+            borderRadius: 3,
+            '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' }
+          }}
+          onClick={() => !isDragging && fileInputRef.current?.click()}
+        >
+          <Box sx={{ width: 80, height: 80, mx: 'auto', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3, bgcolor: isDragging ? 'primary.light' : 'action.selected', transition: 'transform 0.3s', transform: isDragging ? 'scale(1.1)' : 'scale(1)' }}>
+            <CloudUpload sx={{ fontSize: 40, color: isDragging ? 'primary.main' : 'text.secondary' }} />
+          </Box>
+          <Typography variant="h6" fontWeight="semibold" gutterBottom>Drag & Drop your media here</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 400, mx: 'auto', mb: 4 }}>Support for JPG, PNG, MP4, MOV. Max file size is 20MB.</Typography>
+          <input type="file" ref={fileInputRef} hidden accept="image/jpeg,image/png,image/jpg,video/mp4,video/quicktime,video/x-msvideo" onChange={e => handleFileSelect(e.target.files[0])} />
+          <Button variant="contained" size="large" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>Browse Files</Button>
+        </MuiCard>
       ) : (
-        <Card className="overflow-hidden p-0 border border-dark-600/50">
-          <div className="relative p-6">
-            <button onClick={clearFile} disabled={isProcessing} className="absolute top-4 right-4 p-2 bg-dark-800/80 backdrop-blur-sm rounded-full text-dark-400 hover:text-white hover:bg-red-500 transition-all z-10"><X className="w-5 h-5" /></button>
-            <div className="flex flex-col md:flex-row gap-8 items-center">
-              <div className="w-full md:w-1/2 aspect-video bg-black/40 rounded-xl overflow-hidden flex items-center justify-center border border-dark-700 shadow-inner">
+        <MuiCard sx={{ overflow: 'hidden', p: 0, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
+          <Box sx={{ position: 'relative', p: 3 }}>
+            <IconButton onClick={clearFile} disabled={isProcessing} sx={{ position: 'absolute', top: 16, right: 16, bgcolor: 'background.paper', '&:hover': { bgcolor: 'error.main', color: 'error.contrastText' }, zIndex: 10 }}>
+              <Close />
+            </IconButton>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={4} alignItems="center">
+              <Box sx={{ width: '100%', md: '50%', aspectRatio: '16/9', bgcolor: 'black', borderRadius: 2, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {file.type.startsWith('image/') ? (
-                  <img src={preview} alt="Preview" className="w-full h-full object-contain" />
+                  <Box component="img" src={preview} alt="Preview" sx={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 ) : (
-                  <video src={preview} className="w-full h-full object-cover opacity-80" controls={false} />
+                  <Box component="video" src={preview} sx={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} controls={false} />
                 )}
-              </div>
-              <div className="w-full md:w-1/2 space-y-6">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    {file.type.startsWith('image/') ? <FileImage className="w-6 h-6 text-primary-400" /> : <FileVideo className="w-6 h-6 text-purple-400" />}
-                    <h4 className="text-lg font-semibold text-dark-100 truncate pr-8">{file.name}</h4>
-                  </div>
-                  <p className="text-sm text-dark-400">{(file.size / (1024 * 1024)).toFixed(2)} MB • {file.type}</p>
-                </div>
+              </Box>
+              <Box sx={{ width: '100%', md: '50%', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <Box>
+                  <Stack direction="row" alignItems="center" spacing={1.5} mb={0.5}>
+                    {file.type.startsWith('image/') ? <ImageIcon color="primary" /> : <VideoFile color="secondary" />}
+                    <Typography variant="h6" fontWeight="semibold" noWrap sx={{ pr: 4 }}>{file.name}</Typography>
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary">{(file.size / (1024 * 1024)).toFixed(2)} MB • {file.type}</Typography>
+                </Box>
                 {isProcessing ? (
-                  <div className="space-y-4 bg-dark-800/50 p-6 rounded-2xl border border-dark-700/50 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary-500/5 to-transparent animate-shimmer" />
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-primary-400 flex items-center gap-2"><Activity className="w-4 h-4 animate-pulse" /> AI Engine Running</span>
-                      <span className="text-dark-300 font-mono">{progress}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-dark-900 rounded-full overflow-hidden shadow-inner">
-                      <div className="h-full bg-gradient-to-r from-primary-500 to-purple-500 transition-all duration-300 ease-out relative" style={{ width: `${progress}%` }}>
-                        <div className="absolute inset-0 bg-white/20 animate-pulse" />
-                      </div>
-                    </div>
-                  </div>
+                  <Box sx={{ bgcolor: 'action.hover', p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', position: 'relative', overflow: 'hidden' }}>
+                    <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
+                      <Typography variant="body2" color="primary.main" fontWeight="medium" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Insights sx={{ animation: 'pulse 2s infinite' }} /> AI Engine Running
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" fontFamily="monospace">{progress}%</Typography>
+                    </Stack>
+                    <LinearProgress variant="determinate" value={progress} sx={{ height: 8, borderRadius: 4, '& .MuiLinearProgress-bar': { backgroundImage: 'linear-gradient(90deg, #3b82f6, #8b5cf6)' } }} />
+                  </Box>
                 ) : (
-                  <Button onClick={handleUpload} size="lg" className="w-full group">
-                    Start Analysis <Activity className="w-5 h-5 ml-2 group-hover:animate-pulse" />
+                  <Button onClick={handleUpload} variant="contained" size="large" fullWidth endIcon={<Insights />}>
+                    Start Analysis
                   </Button>
                 )}
-              </div>
-            </div>
-          </div>
-        </Card>
+              </Box>
+            </Stack>
+          </Box>
+        </MuiCard>
       )}
-    </div>
+    </Box>
   );
 }

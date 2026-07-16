@@ -1,5 +1,6 @@
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend } from 'chart.js';
+import { Box } from '@mui/material';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
@@ -38,5 +39,5 @@ export default function ConfidenceTrend({ detections }) {
     }
   };
 
-  return <div className="h-64"><Line data={data} options={options} /></div>;
+  return <Box sx={{ height: 256 }}><Line data={data} options={options} /></Box>;
 }

@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import api from '../api/axios';
 import { useToast } from '../hooks/useToast';
 import { PageLoader } from '../components/ui/LoadingSpinner';
-import Button from '../components/ui/Button';
+import { Box, Button } from '@mui/material';
 import AnalysisResult from '../features/analysis/AnalysisResult';
 
 export default function Analysis() {
@@ -32,9 +32,16 @@ export default function Analysis() {
   if (loading) return <PageLoader />;
 
   return (
-    <div className="space-y-6">
-      <Button variant="ghost" onClick={() => navigate(-1)} className="!pl-0 hover:!bg-transparent text-dark-400 hover:text-primary-400"><ArrowLeft className="w-4 h-4 mr-2" /> Back</Button>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <Button 
+        variant="text" 
+        onClick={() => navigate(-1)} 
+        sx={{ color: '#94a3b8', '&:hover': { color: '#6366f1', backgroundColor: 'transparent' }, alignSelf: 'flex-start', pl: 0 }}
+        startIcon={<ArrowBackIcon />}
+      >
+        Back
+      </Button>
       <AnalysisResult data={data} />
-    </div>
+    </Box>
   );
 }

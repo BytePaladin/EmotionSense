@@ -1,53 +1,71 @@
-import { Upload, Activity, Clock, Smile } from 'lucide-react';
-import Card from '../../components/ui/Card';
+import { CloudUpload, ShowChart, AccessTime, SentimentSatisfied } from '@mui/icons-material';
 import EmotionPieChart from '../../components/charts/EmotionPieChart';
 import EmotionBarChart from '../../components/charts/EmotionBarChart';
 import { getEmotionLabel, getEmotionColor, getEmotionEmoji } from '../../utils/emotionColors';
 import EmptyState from '../../components/ui/EmptyState';
+import { Box, Grid, Card as MuiCard, Typography, Stack } from '@mui/material';
 
-const StatCard = ({ title, value, icon: Icon, colorClass, gradient }) => (
-  <Card gradient={gradient} className="flex items-center gap-4 group">
-    <div className={`p-4 rounded-xl ${colorClass} transition-transform duration-300 group-hover:scale-110`}>
-      <Icon className="w-6 h-6 text-white" />
-    </div>
-    <div>
-      <p className="text-dark-400 text-sm font-medium">{title}</p>
-      <p className="text-2xl font-bold text-dark-100 mt-1">{value}</p>
-    </div>
-  </Card>
+const StatCard = ({ title, value, icon: Icon, color }) => (
+  <MuiCard sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, height: '100%', borderRadius: 3, '&:hover .stat-icon': { transform: 'scale(1.1)' } }}>
+    <Box className="stat-icon" sx={{ p: 1.5, borderRadius: 2, bgcolor: color, color: 'white', display: 'flex', transition: 'transform 0.3s' }}>
+      <Icon />
+    </Box>
+    <Box>
+      <Typography variant="body2" color="text.secondary" fontWeight="medium">{title}</Typography>
+      <Typography variant="h5" fontWeight="bold" mt={0.5}>{value}</Typography>
+    </Box>
+  </MuiCard>
 );
 
 export default function DashboardOverview({ stats }) {
   if (!stats || stats.total_uploads === 0) {
-    return <EmptyState icon={Activity} title="No Analytics Data" message="Upload a file to start generating emotional intelligence insights." />;
+    return <EmptyState icon={ShowChart} title="No Analytics Data" message="Upload a file to start generating emotional intelligence insights." />;
   }
 
   const dominantEmotionStr = stats.dominant_emotion || 'neutral';
   const dominantColor = getEmotionColor(dominantEmotionStr);
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Total Uploads" value={stats.total_uploads} icon={Upload} colorClass="bg-gradient-to-br from-primary-500 to-primary-600" />
-        <StatCard title="Dominant Emotion" value={`${getEmotionLabel(dominantEmotionStr)} ${getEmotionEmoji(dominantEmotionStr)}`} icon={Smile} colorClass="" gradient={false} />
-        <StatCard title="Total Detections" value={stats.total_detections} icon={Activity} colorClass="bg-gradient-to-br from-purple-500 to-purple-600" />
-        <StatCard title="Avg. Confidence" value={`${stats.average_confidence}%`} icon={Clock} colorClass="bg-gradient-to-br from-cyan-500 to-cyan-600" />
-      </div>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6} lg={3}>
+          <StatCard title="Total Uploads" value={stats.total_uploads} icon={CloudUpload} color="primary.main" />
+        </Grid>
+        <Grid item xs={12} md={6} lg={3}>
+          <StatCard title="Dominant Emotion" value={`${getEmotionLabel(dominantEmotionStr)} ${getEmotionEmoji(dominantEmotionStr)}`} icon={SentimentSatisfied} color={dominantColor} />
+        </Grid>
+        <Grid item xs={12} md={6} lg={3}>
+          <StatCard title="Total Detections" value={stats.total_detections} icon={ShowChart} color="secondary.main" />
+        </Grid>
+        <Grid item xs={12} md={6} lg={3}>
+          <StatCard title="Avg. Confidence" value={`${stats.average_confidence}%`} icon={AccessTime} color="info.main" />
+        </Grid>
+      </Grid>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1 flex flex-col">
-          <h3 className="text-lg font-semibold text-dark-100 mb-6 flex items-center gap-2"><div className="w-2 h-6 bg-primary-500 rounded-full"/>Overall Distribution</h3>
-          <div className="flex-1 flex items-center justify-center">
-            <EmotionPieChart stats={stats.emotion_distribution} />
-          </div>
-        </Card>
-        <Card className="lg:col-span-2 flex flex-col">
-          <h3 className="text-lg font-semibold text-dark-100 mb-6 flex items-center gap-2"><div className="w-2 h-6 bg-purple-500 rounded-full"/>Emotion Breakdown</h3>
-          <div className="flex-1">
-            <EmotionBarChart stats={stats.emotion_distribution} />
-          </div>
-        </Card>
-      </div>
-    </div>
+      <Grid container spacing={3}>
+        <Grid item xs={12} lg={4}>
+          <MuiCard sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3 }}>
+            <Stack direction="row" alignItems="center" gap={1} mb={3}>
+              <Box sx={{ width: 8, height: 24, bgcolor: 'primary.main', borderRadius: 4 }} />
+              <Typography variant="h6" fontWeight="semibold">Overall Distribution</Typography>
+            </Stack>
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <EmotionPieChart stats={stats.emotion_distribution} />
+            </Box>
+          </MuiCard>
+        </Grid>
+        <Grid item xs={12} lg={8}>
+          <MuiCard sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3 }}>
+            <Stack direction="row" alignItems="center" gap={1} mb={3}>
+              <Box sx={{ width: 8, height: 24, bgcolor: 'secondary.main', borderRadius: 4 }} />
+              <Typography variant="h6" fontWeight="semibold">Emotion Breakdown</Typography>
+            </Stack>
+            <Box sx={{ flex: 1 }}>
+              <EmotionBarChart stats={stats.emotion_distribution} />
+            </Box>
+          </MuiCard>
+        </Grid>
+      </Grid>
+    </Box>
   );
 }

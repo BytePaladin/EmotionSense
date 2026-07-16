@@ -1,6 +1,7 @@
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js';
 import { EMOTION_COLORS } from '../../utils/emotionColors';
+import { Box } from '@mui/material';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -28,5 +29,5 @@ export default function EmotionBarChart({ stats }) {
     }
   };
 
-  return <div className="h-64"><Bar data={data} options={options} /></div>;
+  return <Box sx={{ height: 256 }}><Bar data={data} options={options} /></Box>;
 }

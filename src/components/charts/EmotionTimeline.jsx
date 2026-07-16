@@ -1,6 +1,7 @@
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend } from 'chart.js';
 import { EMOTION_COLORS } from '../../utils/emotionColors';
+import { Box } from '@mui/material';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
 
@@ -32,5 +33,5 @@ export default function EmotionTimeline({ detections }) {
     }
   };
 
-  return <div className="h-64"><Line data={data} options={options} /></div>;
+  return <Box sx={{ height: 256 }}><Line data={data} options={options} /></Box>;
 }

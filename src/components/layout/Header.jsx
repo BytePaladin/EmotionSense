@@ -1,29 +1,68 @@
 import { useContext } from 'react';
-import { Menu, LogOut, Moon, Sun } from 'lucide-react';
+import { AppBar, Toolbar, IconButton, Typography, Box, Avatar, useTheme } from '@mui/material';
+import { Menu as MenuIcon, DarkMode, LightMode, Logout } from '@mui/icons-material';
 import { ThemeContext } from '../../context/ThemeContext';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function Header({ title, onMenuClick }) {
   const { isDark, toggleTheme } = useContext(ThemeContext);
   const { user, logout } = useAuth();
+  const theme = useTheme();
 
   return (
-    <header className="glass border-b border-dark-700/50 px-6 py-4 flex items-center justify-between">
-      <div className="flex items-center gap-4">
-        <button onClick={onMenuClick} className="lg:hidden text-dark-400 hover:text-dark-200"><Menu className="w-5 h-5" /></button>
-        <h2 className="text-xl font-semibold text-dark-100">{title}</h2>
-      </div>
-      <div className="flex items-center gap-3">
-        <button onClick={toggleTheme} className="p-2 rounded-xl text-dark-400 hover:text-dark-200 hover:bg-dark-700/50 transition-all">
-          {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-        </button>
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-purple-500 flex items-center justify-center">
-          <span className="text-xs font-bold text-white">{user?.full_name?.charAt(0)?.toUpperCase() || 'U'}</span>
-        </div>
-        <button onClick={logout} className="p-2 rounded-xl text-dark-400 hover:text-red-400 hover:bg-dark-700/50 transition-all" title="Logout">
-          <LogOut className="w-5 h-5" />
-        </button>
-      </div>
-    </header>
+    <AppBar 
+      position="sticky" 
+      elevation={0}
+      sx={{ 
+        bgcolor: 'background.paper',
+        borderBottom: 1,
+        borderColor: 'divider',
+        color: 'text.primary'
+      }}
+    >
+      <Toolbar sx={{ justifyContent: 'space-between', px: { xs: 2, sm: 3 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={onMenuClick}
+            sx={{ mr: 2, display: { lg: 'none' } }}
+          >
+            <MenuIcon />
+          </IconButton>
+          <Typography variant="h6" noWrap component="div" fontWeight="600">
+            {title}
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <IconButton onClick={toggleTheme} color="inherit">
+            {isDark ? <LightMode /> : <DarkMode />}
+          </IconButton>
+          
+          <Avatar 
+            sx={{ 
+              width: 35, 
+              height: 35, 
+              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              fontSize: '0.875rem',
+              fontWeight: 'bold'
+            }}
+          >
+            {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+          </Avatar>
+          
+          <IconButton 
+            onClick={logout} 
+            color="error" 
+            title="Logout"
+            sx={{ '&:hover': { bgcolor: 'error.main', color: 'white' } }}
+          >
+            <Logout />
+          </IconButton>
+        </Box>
+      </Toolbar>
+    </AppBar>
   );
 }
