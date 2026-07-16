@@ -1,13 +1,112 @@
 import os
+import requests
 from dotenv import load_dotenv
-import libsql_client
 
 load_dotenv()
 
 TURSO_URL = os.getenv("TURSO_DATABASE_URL")
 TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
-# Global connection object
+if TURSO_URL and TURSO_URL.startswith("libsql://"):
+    TURSO_URL = TURSO_URL.replace("libsql://", "https://", 1)
+
+class DummyRow:
+    def __init__(self, data, cols):
+        self.data = data
+        self.cols = cols
+    def __getitem__(self, idx):
+        if isinstance(idx, int):
+            return self.data[idx]
+        if isinstance(idx, str):
+            return self.data[self.cols.index(idx)]
+        raise KeyError(idx)
+    def __getattr__(self, name):
+        if name in self.cols:
+            return self.data[self.cols.index(name)]
+        raise AttributeError(name)
+    def __len__(self):
+        return len(self.data)
+    def __iter__(self):
+        return iter(self.data)
+
+class DummyResult:
+    def __init__(self, rows, columns):
+        self.rows = [DummyRow(r, columns) for r in rows]
+        self.columns = columns
+
+class SimpleDbClient:
+    def __init__(self, url, token):
+        self.url = url.rstrip("/")
+        self.token = token
+        
+    def execute(self, sql, args=None):
+        if args is None:
+            args = []
+        
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json"
+        }
+        
+        formatted_args = []
+        for arg in args:
+            if isinstance(arg, int):
+                formatted_args.append({"type": "integer", "value": str(arg)})
+            elif isinstance(arg, float):
+                formatted_args.append({"type": "float", "value": arg})
+            elif arg is None:
+                formatted_args.append({"type": "null"})
+            else:
+                formatted_args.append({"type": "text", "value": str(arg)})
+                
+        body = {
+            "requests": [
+                {
+                    "type": "execute",
+                    "stmt": {
+                        "sql": sql,
+                        "args": formatted_args
+                    }
+                },
+                {"type": "close"}
+            ]
+        }
+        
+        res = requests.post(f"{self.url}/v2/pipeline", json=body, headers=headers)
+        if res.status_code != 200:
+            raise Exception(f"Database error: {res.text}")
+            
+        data = res.json()
+        results = data.get("results", [])
+        if not results:
+            return DummyResult([], [])
+            
+        execute_result = results[0]
+        if execute_result["type"] == "error":
+            raise Exception(f"SQL Error: {execute_result['error']['message']}")
+            
+        response = execute_result.get("response", {}).get("result", {})
+        cols = [c["name"] for c in response.get("cols", [])]
+        rows = response.get("rows", [])
+        
+        parsed_rows = []
+        for r in rows:
+            parsed_row = []
+            for val in r:
+                t = val["type"]
+                v = val.get("value")
+                if t == "integer":
+                    parsed_row.append(int(v))
+                elif t == "float":
+                    parsed_row.append(float(v))
+                elif t == "null":
+                    parsed_row.append(None)
+                else:
+                    parsed_row.append(v)
+            parsed_rows.append(parsed_row)
+            
+        return DummyResult(parsed_rows, cols)
+
 client = None
 
 def get_db():
@@ -15,15 +114,11 @@ def get_db():
     if client is None:
         if not TURSO_URL:
             raise ValueError("TURSO_DATABASE_URL environment variable is not set")
-        client = libsql_client.create_client_sync(
-            url=TURSO_URL,
-            auth_token=TURSO_TOKEN
-        )
+        client = SimpleDbClient(TURSO_URL, TURSO_TOKEN)
     return client
 
 def init_db():
     db = get_db()
-    # Users Table
     db.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
@@ -34,7 +129,6 @@ def init_db():
             updated_at TEXT DEFAULT (datetime('now'))
         )
     ''')
-    # Uploaded Files Table
     db.execute('''
         CREATE TABLE IF NOT EXISTS uploaded_files (
             id TEXT PRIMARY KEY,
@@ -47,7 +141,6 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
     ''')
-    # Detection Results Table
     db.execute('''
         CREATE TABLE IF NOT EXISTS detection_results (
             id TEXT PRIMARY KEY,
@@ -58,7 +151,6 @@ def init_db():
             FOREIGN KEY (file_id) REFERENCES uploaded_files(id) ON DELETE CASCADE
         )
     ''')
-    # Emotion Statistics Table
     db.execute('''
         CREATE TABLE IF NOT EXISTS emotion_statistics (
             id TEXT PRIMARY KEY,
