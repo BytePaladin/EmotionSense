@@ -25,11 +25,11 @@ export default function EmotionTimeline({ detections }) {
     responsive: true, maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
-      tooltip: { backgroundColor: '#1e293b', titleColor: '#f1f5f9', bodyColor: '#cbd5e1', borderColor: 'rgba(99, 102, 241, 0.3)', borderWidth: 1, cornerRadius: 12, padding: 12, callbacks: { label: (ctx) => { const det = detections[ctx.dataIndex]; return `${EMOTION_COLORS[det.emotion?.toLowerCase()]?.label || det.emotion} (${(det.confidence * 100).toFixed(0)}%)`; } } }
+      tooltip: { backgroundColor: 'background.paper', titleColor: '#f1f5f9', bodyColor: '#cbd5e1', borderColor: 'rgba(99, 102, 241, 0.3)', borderWidth: 1, cornerRadius: 12, padding: 12, callbacks: { label: (ctx) => { const det = detections[ctx.dataIndex]; return `${EMOTION_COLORS[det.emotion?.toLowerCase()]?.label || det.emotion} (${(det.confidence * 100).toFixed(0)}%)`; } } }
     },
     scales: {
-      x: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8', font: { family: 'Inter' } }, title: { display: true, text: 'Time', color: '#64748b', font: { family: 'Inter' } } },
-      y: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8', font: { family: 'Inter', size: 11 }, stepSize: 1, callback: (value) => emotionLabels[value - 1] || '' }, min: 0.5, max: 7.5 }
+      x: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: 'text.secondary', font: { family: 'Inter' } }, title: { display: true, text: 'Time', color: '#64748b', font: { family: 'Inter' } } },
+      y: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: 'text.secondary', font: { family: 'Inter', size: 11 }, stepSize: 1, callback: (value) => emotionLabels[value - 1] || '' }, min: 0.5, max: 7.5 }
     }
   };
 

@@ -42,18 +42,18 @@ export default function History() {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, animation: 'fadeIn 0.5s ease-in-out' }}>
       <Box>
-        <Typography variant="h5" component="h2" fontWeight="bold" sx={{ color: '#f8fafc' }}>Upload History</Typography>
-        <Typography variant="body2" sx={{ color: '#94a3b8' }}>Review your past media analyses.</Typography>
+        <Typography variant="h5" component="h2" fontWeight="bold" color="text.primary">Upload History</Typography>
+        <Typography variant="body2" color="text.secondary">Review your past media analyses.</Typography>
       </Box>
-      <Card sx={{ p: 0, overflow: 'hidden', borderColor: 'rgba(51, 65, 85, 0.5)', borderWidth: 1, borderStyle: 'solid', backgroundColor: '#1e293b' }}>
+      <Card sx={{ p: 0, overflow: 'hidden', borderColor: 'divider', borderWidth: 1, borderStyle: 'solid', bgcolor: 'background.paper' }}>
         <Box sx={{ p: 1 }}>
           <HistoryTable history={history} loading={loading} onDelete={(id) => setDeleteModal({ isOpen: true, fileId: id })} />
         </Box>
         {pagination.totalPages > 1 && (
-          <Box sx={{ p: 2, borderTop: '1px solid rgba(51, 65, 85, 0.5)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(15, 23, 42, 0.3)' }}>
-            <Button disabled={pagination.page === 1} onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))} sx={{ color: '#cbd5e1', '&:hover': { color: '#fff' } }}>Previous</Button>
-            <Typography variant="body2" sx={{ color: '#94a3b8' }}>Page {pagination.page} of {pagination.totalPages}</Typography>
-            <Button disabled={pagination.page === pagination.totalPages} onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))} sx={{ color: '#cbd5e1', '&:hover': { color: '#fff' } }}>Next</Button>
+          <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'action.hover' }}>
+            <Button disabled={pagination.page === 1} onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))} sx={{ color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>Previous</Button>
+            <Typography variant="body2" color="text.secondary">Page {pagination.page} of {pagination.totalPages}</Typography>
+            <Button disabled={pagination.page === pagination.totalPages} onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))} sx={{ color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>Next</Button>
           </Box>
         )}
       </Card>

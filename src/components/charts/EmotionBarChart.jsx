@@ -21,11 +21,11 @@ export default function EmotionBarChart({ stats }) {
     responsive: true, maintainAspectRatio: false, indexAxis: 'y',
     plugins: {
       legend: { display: false },
-      tooltip: { backgroundColor: '#1e293b', titleColor: '#f1f5f9', bodyColor: '#cbd5e1', borderColor: 'rgba(99, 102, 241, 0.3)', borderWidth: 1, cornerRadius: 12, padding: 12, callbacks: { label: (ctx) => `${ctx.parsed.x.toFixed(1)}%` } }
+      tooltip: { backgroundColor: 'background.paper', titleColor: '#f1f5f9', bodyColor: '#cbd5e1', borderColor: 'rgba(99, 102, 241, 0.3)', borderWidth: 1, cornerRadius: 12, padding: 12, callbacks: { label: (ctx) => `${ctx.parsed.x.toFixed(1)}%` } }
     },
     scales: {
-      x: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8', font: { family: 'Inter' } }, max: 100 },
-      y: { grid: { display: false }, ticks: { color: '#94a3b8', font: { family: 'Inter', size: 12 } } }
+      x: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: 'text.secondary', font: { family: 'Inter' } }, max: 100 },
+      y: { grid: { display: false }, ticks: { color: 'text.secondary', font: { family: 'Inter', size: 12 } } }
     }
   };
 

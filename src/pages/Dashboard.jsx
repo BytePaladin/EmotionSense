@@ -33,10 +33,10 @@ export default function Dashboard() {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2 }}>
         <Box>
-          <Typography variant="h5" component="h2" fontWeight="bold" sx={{ color: '#f8fafc' }}>
+          <Typography variant="h5" component="h2" fontWeight="bold" color="text.primary">
             Analytics Overview
           </Typography>
-          <Typography variant="body2" sx={{ color: '#94a3b8' }}>
+          <Typography variant="body2" color="text.secondary">
             Insights from all your uploaded media.
           </Typography>
         </Box>

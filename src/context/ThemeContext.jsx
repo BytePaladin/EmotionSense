@@ -28,8 +28,8 @@ export const ThemeProvider = ({ children }) => {
             main: '#8b5cf6',
           },
           background: {
-            default: mode === 'light' ? '#f8fafc' : '#0b0f19',
-            paper: mode === 'light' ? '#ffffff' : '#1e293b',
+            default: mode === 'light' ? 'text.primary' : '#0b0f19',
+            paper: mode === 'light' ? '#ffffff' : 'background.paper',
           },
         },
         typography: {

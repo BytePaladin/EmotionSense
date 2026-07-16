@@ -31,11 +31,11 @@ export default function ConfidenceTrend({ detections }) {
     responsive: true, maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
-      tooltip: { backgroundColor: '#1e293b', titleColor: '#f1f5f9', bodyColor: '#cbd5e1', borderColor: 'rgba(6, 182, 212, 0.3)', borderWidth: 1, cornerRadius: 12, padding: 12, callbacks: { label: (ctx) => `Confidence: ${ctx.parsed.y}%` } }
+      tooltip: { backgroundColor: 'background.paper', titleColor: '#f1f5f9', bodyColor: '#cbd5e1', borderColor: 'rgba(6, 182, 212, 0.3)', borderWidth: 1, cornerRadius: 12, padding: 12, callbacks: { label: (ctx) => `Confidence: ${ctx.parsed.y}%` } }
     },
     scales: {
-      x: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8', font: { family: 'Inter' } }, title: { display: true, text: 'Time', color: '#64748b', font: { family: 'Inter' } } },
-      y: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8', font: { family: 'Inter' } }, min: 0, max: 100, title: { display: true, text: 'Confidence %', color: '#64748b', font: { family: 'Inter' } } }
+      x: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: 'text.secondary', font: { family: 'Inter' } }, title: { display: true, text: 'Time', color: '#64748b', font: { family: 'Inter' } } },
+      y: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: 'text.secondary', font: { family: 'Inter' } }, min: 0, max: 100, title: { display: true, text: 'Confidence %', color: '#64748b', font: { family: 'Inter' } } }
     }
   };
 
