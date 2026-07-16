@@ -20,9 +20,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+startup_error = None
+
 @app.on_event("startup")
 def startup_event():
-    init_db()
+    global startup_error
+    try:
+        init_db()
+    except Exception as e:
+        startup_error = str(e)
+
+@app.get("/api/v1/ping")
+def ping():
+    return {"status": "ok", "startup_error": startup_error}
 
 # --- Schemas ---
 class RegisterUser(BaseModel):
