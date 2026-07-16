@@ -8,7 +8,7 @@ HF_API_TOKEN = os.getenv("HF_API_TOKEN")
 
 # We use an emotion detection model from HuggingFace
 # Note: For images, a common model is 'dima806/facial_emotions_image_detection'
-API_URL = "https://api-inference.huggingface.co/models/dima806/facial_emotions_image_detection"
+API_URL = "https://router.huggingface.co/hf-inference/models/dima806/facial_emotions_image_detection"
 
 def analyze_image(file_bytes: bytes):
     if not HF_API_TOKEN:
