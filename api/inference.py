@@ -63,9 +63,14 @@ def process_detections(hf_result):
     }
 
     # Since it's a single image, we simulate a timestamp of 0.0
-    for pred in predictions:
-        raw_label = str(pred.get('label', 'neutral')).lower()
-        score = pred.get('score', 0.0)
+    # We only want to save the dominant emotion (highest score) as the detection
+    if predictions:
+        # Sort predictions by score descending
+        predictions.sort(key=lambda x: x.get('score', 0.0), reverse=True)
+        top_pred = predictions[0]
+        
+        raw_label = str(top_pred.get('label', 'neutral')).lower()
+        score = top_pred.get('score', 0.0)
         
         emotion = label_map.get(raw_label, 'neutral')
         
