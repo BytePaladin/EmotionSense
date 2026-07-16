@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta
-from jose import JWTError, jwt
+import jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -41,5 +41,5 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         if user_id is None or email is None:
             raise credentials_exception
         return {"id": user_id, "email": email}
-    except JWTError:
+    except jwt.InvalidTokenError:
         raise credentials_exception
