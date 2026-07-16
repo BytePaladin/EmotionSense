@@ -10,13 +10,13 @@ HF_API_TOKEN = os.getenv("HF_API_TOKEN")
 # Note: For images, a common model is 'dima806/facial_emotions_image_detection'
 API_URL = "https://router.huggingface.co/hf-inference/models/dima806/facial_emotions_image_detection"
 
-def analyze_image(file_bytes: bytes):
+def analyze_image(file_bytes: bytes, content_type: str = "image/jpeg"):
     if not HF_API_TOKEN:
         raise ValueError("HF_API_TOKEN environment variable is missing.")
         
     headers = {
         "Authorization": f"Bearer {HF_API_TOKEN}",
-        "Content-Type": "application/octet-stream"
+        "Content-Type": content_type
     }
     
     # Retry mechanism in case model is loading

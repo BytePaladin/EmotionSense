@@ -144,7 +144,7 @@ async def analyze_file(file: UploadFile = File(...)):
     
     # Send to Hugging Face
     try:
-        hf_result = analyze_image(file_bytes)
+        hf_result = analyze_image(file_bytes, content_type=file.content_type or "image/jpeg")
         detections = process_detections(hf_result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
