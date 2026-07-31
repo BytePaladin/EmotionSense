@@ -18,11 +18,13 @@ import {
   History as HistoryIcon,
   Person as PersonIcon,
   Close as CloseIcon,
-  Psychology as BrainIcon
+  Psychology as BrainIcon,
+  Videocam as VideocamIcon
 } from '@mui/icons-material';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: DashboardIcon },
+  { to: '/live', label: 'Live Camera', icon: VideocamIcon },
   { to: '/upload', label: 'Upload', icon: UploadIcon },
   { to: '/history', label: 'History', icon: HistoryIcon },
   { to: '/profile', label: 'Profile', icon: PersonIcon }

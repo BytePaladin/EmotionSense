@@ -13,6 +13,7 @@ import Upload from './pages/Upload';
 import History from './pages/History';
 import Analysis from './pages/Analysis';
 import Profile from './pages/Profile';
+import LiveCamera from './pages/LiveCamera';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -37,6 +38,7 @@ function App() {
             <Route path="/register" element={<AuthRoute><Register /></AuthRoute>} />
             
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/live" element={<ProtectedRoute><LiveCamera /></ProtectedRoute>} />
             <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
             <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
             <Route path="/analysis/:id" element={<ProtectedRoute><Analysis /></ProtectedRoute>} />
