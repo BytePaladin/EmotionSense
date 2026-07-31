@@ -1,11 +1,12 @@
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js';
 import { EMOTION_COLORS } from '../../utils/emotionColors';
-import { Box } from '@mui/material';
+import { Box, useTheme } from '@mui/material';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 export default function EmotionBarChart({ stats }) {
+  const theme = useTheme();
   if (!stats) return null;
   const emotions = Object.keys(EMOTION_COLORS);
   const percentages = emotions.map(e => stats[`${e}_percentage`] || 0);
@@ -21,11 +22,11 @@ export default function EmotionBarChart({ stats }) {
     responsive: true, maintainAspectRatio: false, indexAxis: 'y',
     plugins: {
       legend: { display: false },
-      tooltip: { backgroundColor: 'background.paper', titleColor: '#f1f5f9', bodyColor: '#cbd5e1', borderColor: 'rgba(99, 102, 241, 0.3)', borderWidth: 1, cornerRadius: 12, padding: 12, callbacks: { label: (ctx) => `${ctx.parsed.x.toFixed(1)}%` } }
+      tooltip: { backgroundColor: theme.palette.background.paper, titleColor: theme.palette.text.primary, bodyColor: theme.palette.text.secondary, borderColor: theme.palette.divider, borderWidth: 1, cornerRadius: 12, padding: 12, callbacks: { label: (ctx) => `${ctx.parsed.x.toFixed(1)}%` } }
     },
     scales: {
-      x: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: 'text.secondary', font: { family: 'Inter' } }, max: 100 },
-      y: { grid: { display: false }, ticks: { color: 'text.secondary', font: { family: 'Inter', size: 12 } } }
+      x: { grid: { color: theme.palette.divider }, ticks: { color: theme.palette.text.secondary, font: { family: 'Inter' } }, max: 100 },
+      y: { grid: { display: false }, ticks: { color: theme.palette.text.secondary, font: { family: 'Inter', size: 12 } } }
     }
   };
 
