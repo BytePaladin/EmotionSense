@@ -1,28 +1,37 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Button, Typography, Paper, CircularProgress, Alert } from '@mui/material';
-import { Videocam, Stop, Save, PlayArrow } from '@mui/icons-material';
+import { Videocam, Stop, PlayArrow } from '@mui/icons-material';
 import * as faceapi from '@vladmandic/face-api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import api from '../api/axios';
 
+const EMOTION_MAP = {
+  neutral: 'neutral',
+  happy: 'happy',
+  sad: 'sad',
+  angry: 'angry',
+  fearful: 'fear',
+  disgusted: 'disgust',
+  surprised: 'surprised'
+};
+
 export default function LiveCamera() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
+  const detectionIntervalRef = useRef(null);
+  const detectionsRef = useRef([]);
+
   const [isModelsLoaded, setIsModelsLoaded] = useState(false);
   const [isSessionActive, setIsSessionActive] = useState(false);
-  const [detections, setDetections] = useState([]);
-  const [startTime, setStartTime] = useState(null);
+  const [detectionCount, setDetectionCount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   
   const navigate = useNavigate();
-  const { token } = useAuth();
   const toast = useToast();
-  
-  const detectionIntervalRef = useRef(null);
 
   useEffect(() => {
     const loadModels = async () => {
@@ -34,7 +43,7 @@ export default function LiveCamera() {
         setIsModelsLoaded(true);
       } catch (err) {
         console.error("Error loading models:", err);
-        setError("Failed to load AI models. Please ensure they exist in public/models.");
+        setError("Failed to load AI models. Please ensure model files are accessible in /models.");
       }
     };
     loadModels();
@@ -44,21 +53,11 @@ export default function LiveCamera() {
     };
   }, []);
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      streamRef.current = stream;
-      setError('');
-    } catch (err) {
-      console.error("Error accessing camera:", err);
-      setError("Unable to access camera. Please check permissions.");
-    }
-  };
-
   const stopCamera = () => {
+    if (detectionIntervalRef.current) {
+      clearInterval(detectionIntervalRef.current);
+      detectionIntervalRef.current = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
@@ -66,65 +65,87 @@ export default function LiveCamera() {
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-    if (detectionIntervalRef.current) {
-      clearInterval(detectionIntervalRef.current);
-      detectionIntervalRef.current = null;
-    }
   };
 
-  const handleStartSession = async () => {
-    await startCamera();
-    setDetections([]);
-    setStartTime(Date.now());
-    setIsSessionActive(true);
-  };
-
-  const handleVideoPlay = () => {
-    if (!isSessionActive || !videoRef.current || !canvasRef.current) return;
-    
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    
+  const startDetectionLoop = (video, canvas, startTime) => {
     const displaySize = { width: video.videoWidth || 640, height: video.videoHeight || 480 };
     faceapi.matchDimensions(canvas, displaySize);
 
     detectionIntervalRef.current = setInterval(async () => {
       if (!video || video.paused || video.ended) return;
       
-      const result = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
-      
-      if (result) {
-        // Draw bounding box
-        const resizedResult = faceapi.resizeResults(result, displaySize);
-        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-        faceapi.draw.drawDetections(canvas, resizedResult);
+      try {
+        const result = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })).withFaceExpressions();
         
-        // Find dominant emotion
-        const expressions = result.expressions;
-        const dominant = Object.keys(expressions).reduce((a, b) => expressions[a] > expressions[b] ? a : b);
-        
-        const timestamp = (Date.now() - startTime) / 1000.0;
-        
-        setDetections(prev => [...prev, {
-          timestamp: Number(timestamp.toFixed(2)),
-          emotion: dominant,
-          confidence: Number(expressions[dominant].toFixed(2))
-        }]);
-        
-        // Draw label
-        const drawBox = new faceapi.draw.DrawBox(resizedResult.detection.box, { label: `${dominant} (${Math.round(expressions[dominant]*100)}%)` });
-        drawBox.draw(canvas);
-      } else {
-        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+        if (result && result.expressions) {
+          const resizedResult = faceapi.resizeResults(result, displaySize);
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          faceapi.draw.drawDetections(canvas, resizedResult);
+          
+          const expressions = result.expressions;
+          const rawDominant = Object.keys(expressions).reduce((a, b) => expressions[a] > expressions[b] ? a : b);
+          const mappedEmotion = EMOTION_MAP[rawDominant] || 'neutral';
+          
+          const timestamp = Number(((Date.now() - startTime) / 1000.0).toFixed(2));
+          const confidence = Number(expressions[rawDominant].toFixed(2));
+          
+          const newDetection = { timestamp, emotion: mappedEmotion, confidence };
+          if (detectionsRef.current.length < 500) {
+            detectionsRef.current.push(newDetection);
+            setDetectionCount(detectionsRef.current.length);
+          }
+          
+          const label = `${mappedEmotion} (${Math.round(confidence * 100)}%)`;
+          const drawBox = new faceapi.draw.DrawBox(resizedResult.detection.box, { label });
+          drawBox.draw(canvas);
+        } else {
+          const ctx = canvas.getContext('2d');
+          if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      } catch (err) {
+        console.error("Detection iteration error:", err);
       }
-    }, 500); // 2 FPS for storing to DB, can be lower/higher depending on needs
+    }, 500);
+  };
+
+  const handleStartSession = async () => {
+    setError('');
+    detectionsRef.current = [];
+    setDetectionCount(0);
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+      streamRef.current = stream;
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current.play().then(() => {
+            const startTime = Date.now();
+            setIsSessionActive(true);
+            if (canvasRef.current) {
+              startDetectionLoop(videoRef.current, canvasRef.current, startTime);
+            }
+          }).catch(err => {
+            console.error("Video play error:", err);
+            setError("Failed to start video playback.");
+          });
+        };
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      setError("Unable to access camera. Please check browser permissions.");
+    }
   };
 
   const handleStopSession = async () => {
     stopCamera();
     setIsSessionActive(false);
     
-    if (detections.length === 0) {
+    const capturedDetections = [...detectionsRef.current];
+    
+    if (capturedDetections.length === 0) {
       toast.info("No face detected during the session. Nothing to save.");
       return;
     }
@@ -137,16 +158,21 @@ export default function LiveCamera() {
           file_type: "live_session",
           file_size: 0
         },
-        detections: detections
+        detections: capturedDetections
       };
       
       const response = await api.post('/upload-result', payload);
       
       toast.success("Live session saved successfully!");
-      navigate(`/analysis/${response.data.data.file_id}`);
+      if (response.data?.data?.file_id) {
+        navigate(`/analysis/${response.data.data.file_id}`);
+      } else {
+        navigate('/history');
+      }
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to save session data.");
+      console.error("Failed to save session:", err);
+      const detailMsg = err.response?.data?.detail || err.message || "Failed to save session data.";
+      toast.error(typeof detailMsg === 'string' ? detailMsg : "Failed to save session data.");
       setIsSaving(false);
     }
   };
@@ -164,7 +190,7 @@ export default function LiveCamera() {
               🔴 LIVE
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Detections: {detections.length}
+              Detections: {detectionCount}
             </Typography>
           </Box>
         )}
@@ -183,9 +209,8 @@ export default function LiveCamera() {
             <Box sx={{ position: 'relative', width: '100%', maxWidth: 640, minHeight: 480, bgcolor: 'black', borderRadius: 2, overflow: 'hidden', mb: 3 }}>
               <video
                 ref={videoRef}
-                autoPlay
                 muted
-                onPlay={handleVideoPlay}
+                playsInline
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
               <canvas
@@ -230,3 +255,4 @@ export default function LiveCamera() {
     </Box>
   );
 }
+

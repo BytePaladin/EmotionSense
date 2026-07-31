@@ -172,24 +172,28 @@ def save_upload_result(payload: UploadResultPayload, current_user: dict = Depend
         
     db = get_db()
     file_id = str(uuid.uuid4())
-    db.execute(
+    stmts = []
+
+    stmts.append((
         "INSERT INTO uploaded_files (id, user_id, file_name, file_type, file_size) VALUES (?, ?, ?, ?, ?)",
         [file_id, current_user["id"], meta.file_name, meta.file_type, meta.file_size]
-    )
+    ))
     
     for d in detections:
         det_id = str(uuid.uuid4())
-        db.execute(
+        stmts.append((
             "INSERT INTO detection_results (id, file_id, timestamp, emotion, confidence) VALUES (?, ?, ?, ?, ?)",
             [det_id, file_id, d["timestamp"], d["emotion"].lower(), d["confidence"]]
-        )
+        ))
         
     stats = calculate_emotion_stats(detections)
     stats_id = str(uuid.uuid4())
-    db.execute(
+    stmts.append((
         "INSERT INTO emotion_statistics (id, file_id, happy_percentage, sad_percentage, angry_percentage, fear_percentage, surprised_percentage, disgust_percentage, neutral_percentage, dominant_emotion, average_confidence, stability_score, total_detections) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [stats_id, file_id, stats["happy_percentage"], stats["sad_percentage"], stats["angry_percentage"], stats["fear_percentage"], stats["surprised_percentage"], stats["disgust_percentage"], stats["neutral_percentage"], stats["dominant_emotion"], stats["average_confidence"], stats["stability_score"], stats["total_detections"]]
-    )
+    ))
+    
+    db.execute_pipeline(stmts)
     
     return {"success": True, "message": "Upload result saved", "data": {"file_id": file_id, **stats}}
 

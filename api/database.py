@@ -107,6 +107,48 @@ class SimpleDbClient:
             
         return DummyResult(parsed_rows, cols)
 
+    def execute_pipeline(self, stmts_with_args):
+        if not stmts_with_args:
+            return
+            
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json"
+        }
+        
+        requests_payload = []
+        for sql, args in stmts_with_args:
+            formatted_args = []
+            for arg in (args or []):
+                if isinstance(arg, int):
+                    formatted_args.append({"type": "integer", "value": str(arg)})
+                elif isinstance(arg, float):
+                    formatted_args.append({"type": "float", "value": arg})
+                elif arg is None:
+                    formatted_args.append({"type": "null"})
+                else:
+                    formatted_args.append({"type": "text", "value": str(arg)})
+                    
+            requests_payload.append({
+                "type": "execute",
+                "stmt": {
+                    "sql": sql,
+                    "args": formatted_args
+                }
+            })
+            
+        requests_payload.append({"type": "close"})
+        
+        body = {"requests": requests_payload}
+        res = requests.post(f"{self.url}/v2/pipeline", json=body, headers=headers)
+        if res.status_code != 200:
+            raise Exception(f"Database error: {res.text}")
+            
+        data = res.json()
+        for execute_result in data.get("results", []):
+            if execute_result.get("type") == "error":
+                raise Exception(f"SQL Error: {execute_result['error']['message']}")
+
 client = None
 
 def get_db():
