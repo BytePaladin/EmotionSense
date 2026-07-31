@@ -3,6 +3,7 @@ import EmotionPieChart from '../../components/charts/EmotionPieChart';
 import EmotionTimeline from '../../components/charts/EmotionTimeline';
 import ConfidenceTrend from '../../components/charts/ConfidenceTrend';
 import { getEmotionLabel, getEmotionColor, getEmotionEmoji } from '../../utils/emotionColors';
+import { formatFullDateTimeGMT6 } from '../../utils/dateUtils';
 import { Box, Card as MuiCard, Typography, Grid, Stack, Divider, LinearProgress } from '@mui/material';
 
 export default function AnalysisResult({ data }) {
@@ -20,7 +21,7 @@ export default function AnalysisResult({ data }) {
           </Box>
           <Typography variant="h4" fontWeight="bold">{file.file_name}</Typography>
           <Stack direction="row" flexWrap="wrap" gap={2} alignItems="center" color="text.secondary">
-            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><AccessTime fontSize="small"/> {new Date(file.upload_time).toLocaleString()}</Typography>
+            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><AccessTime fontSize="small"/> {formatFullDateTimeGMT6(file.upload_time)}</Typography>
             <Divider orientation="vertical" flexItem />
             <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><ShowChart fontSize="small"/> {file.total_detections} frames analyzed</Typography>
           </Stack>
@@ -44,7 +45,6 @@ export default function AnalysisResult({ data }) {
         <Grid item xs={12} lg={4}>
           <MuiCard sx={{ p: 3, display: 'flex', flexDirection: 'column', height: '100%', borderRadius: 3 }}>
             <Stack direction="row" alignItems="center" gap={1} mb={3}>
-              <Box sx={{ width: 8, height: 24, bgcolor: 'primary.main', borderRadius: 4 }} />
               <Typography variant="h6" fontWeight="semibold">Distribution</Typography>
             </Stack>
             <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><EmotionPieChart stats={file} /></Box>
@@ -55,7 +55,6 @@ export default function AnalysisResult({ data }) {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <MuiCard sx={{ p: 3, borderRadius: 3 }}>
               <Stack direction="row" alignItems="center" gap={1} mb={3}>
-                <Box sx={{ width: 8, height: 24, bgcolor: 'secondary.main', borderRadius: 4 }} />
                 <Typography variant="h6" fontWeight="semibold">Emotion Timeline</Typography>
               </Stack>
               <EmotionTimeline detections={detections} />
@@ -98,7 +97,6 @@ export default function AnalysisResult({ data }) {
       
       <MuiCard sx={{ p: 3, borderRadius: 3 }}>
          <Stack direction="row" alignItems="center" gap={1} mb={3}>
-           <Box sx={{ width: 8, height: 24, bgcolor: 'info.main', borderRadius: 4 }} />
            <Typography variant="h6" fontWeight="semibold">Confidence Trend</Typography>
          </Stack>
          <ConfidenceTrend detections={detections} />

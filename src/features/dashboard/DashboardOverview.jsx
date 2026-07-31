@@ -46,7 +46,6 @@ export default function DashboardOverview({ stats }) {
         <Grid item xs={12} lg={4}>
           <MuiCard sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3 }}>
             <Stack direction="row" alignItems="center" gap={1} mb={3}>
-              <Box sx={{ width: 8, height: 24, bgcolor: 'primary.main', borderRadius: 4 }} />
               <Typography variant="h6" fontWeight="semibold">Overall Distribution</Typography>
             </Stack>
             <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -57,7 +56,6 @@ export default function DashboardOverview({ stats }) {
         <Grid item xs={12} lg={8}>
           <MuiCard sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3 }}>
             <Stack direction="row" alignItems="center" gap={1} mb={3}>
-              <Box sx={{ width: 8, height: 24, bgcolor: 'secondary.main', borderRadius: 4 }} />
               <Typography variant="h6" fontWeight="semibold">Emotion Breakdown</Typography>
             </Stack>
             <Box sx={{ flex: 1 }}>

@@ -3,6 +3,7 @@ import { Visibility, Delete, Image as ImageIcon, VideoFile, AccessTime } from '@
 import { getEmotionLabel, getEmotionColor } from '../../utils/emotionColors';
 import EmptyState from '../../components/ui/EmptyState';
 import { Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Typography, LinearProgress, Skeleton, Chip, Tooltip } from '@mui/material';
+import { formatDateGMT6, formatTimeGMT6 } from '../../utils/dateUtils';
 
 export default function HistoryTable({ history, loading, onDelete }) {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ export default function HistoryTable({ history, loading, onDelete }) {
         <TableHead>
           <TableRow sx={{ '& th': { borderBottom: '1px solid', borderColor: 'divider', color: 'text.secondary', fontWeight: 'semibold' } }}>
             <TableCell>File</TableCell>
-            <TableCell>Date</TableCell>
+            <TableCell>Date & Time (GMT+6)</TableCell>
             <TableCell>Dominant Emotion</TableCell>
             <TableCell>Avg. Confidence</TableCell>
             <TableCell align="right">Actions</TableCell>
@@ -48,8 +49,8 @@ export default function HistoryTable({ history, loading, onDelete }) {
                 </Box>
               </TableCell>
               <TableCell sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="body2" color="text.secondary">{new Date(item.upload_time).toLocaleDateString()}</Typography>
-                <Typography variant="caption" color="text.disabled">{new Date(item.upload_time).toLocaleTimeString()}</Typography>
+                <Typography variant="body2" color="text.secondary">{formatDateGMT6(item.upload_time)}</Typography>
+                <Typography variant="caption" color="text.disabled">{formatTimeGMT6(item.upload_time)}</Typography>
               </TableCell>
               <TableCell sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Chip 
