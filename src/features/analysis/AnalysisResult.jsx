@@ -61,28 +61,32 @@ export default function AnalysisResult({ data }) {
             </MuiCard>
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
-                <MuiCard sx={{ p: 3, borderRadius: 3, background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.1) 100%)' }}>
-                  <Stack direction="row" alignItems="flex-start" gap={2}>
-                    <Box sx={{ p: 1.5, bgcolor: 'info.main', color: 'info.contrastText', borderRadius: 2, opacity: 0.9 }}><Verified /></Box>
-                    <Box>
+                <MuiCard sx={{ p: 3, borderRadius: 3, height: '100%', display: 'flex', alignItems: 'center', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.1) 100%)' }}>
+                  <Stack direction="row" alignItems="center" gap={2} sx={{ width: '100%' }}>
+                    <Box sx={{ p: 1.25, bgcolor: 'info.main', color: 'info.contrastText', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.9 }}>
+                      <Verified fontSize="medium" />
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
                       <Typography variant="body2" color="text.secondary">Stability Score</Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, mt: 0.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mt: 0.5 }}>
                         <Typography variant="h4" fontWeight="bold">{file.stability_score}</Typography>
-                        <Typography variant="body2" color="text.disabled" mb={0.5}>/ 100</Typography>
+                        <Typography variant="body2" color="text.disabled">/ 100</Typography>
                       </Box>
-                      <Typography variant="caption" color="text.secondary" display="block" mt={1}>Measures emotion consistency over time.</Typography>
+                      <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>Measures emotion consistency over time.</Typography>
                     </Box>
                   </Stack>
                 </MuiCard>
               </Grid>
               <Grid item xs={12} md={6}>
-                <MuiCard sx={{ p: 3, borderRadius: 3, background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.1) 100%)' }}>
-                  <Stack direction="row" alignItems="flex-start" gap={2}>
-                    <Box sx={{ p: 1.5, bgcolor: 'primary.main', color: 'primary.contrastText', borderRadius: 2, opacity: 0.9 }}><Bolt /></Box>
-                    <Box sx={{ width: '100%' }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <MuiCard sx={{ p: 3, borderRadius: 3, height: '100%', display: 'flex', alignItems: 'center', background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.1) 100%)' }}>
+                  <Stack direction="row" alignItems="center" gap={2} sx={{ width: '100%' }}>
+                    <Box sx={{ p: 1.25, bgcolor: 'primary.main', color: 'primary.contrastText', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.9 }}>
+                      <Bolt fontSize="medium" />
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                         <Typography variant="body2" color="text.secondary">Processing Status</Typography>
-                        <Typography variant="body2" color="primary.main">Complete</Typography>
+                        <Typography variant="body2" color="primary.main" fontWeight="semibold">Complete</Typography>
                       </Box>
                       <LinearProgress variant="determinate" value={100} sx={{ height: 8, borderRadius: 4 }} />
                       <Typography variant="caption" color="text.secondary" display="block" mt={1}>Analyzed {file.file_size > 1048576 ? (file.file_size/1048576).toFixed(1) + ' MB' : (file.file_size/1024).toFixed(0) + ' KB'} in {(detections.length * 0.15).toFixed(1)}s</Typography>
