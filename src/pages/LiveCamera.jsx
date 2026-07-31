@@ -5,7 +5,7 @@ import * as faceapi from '@vladmandic/face-api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
-import axios from 'axios';
+import api from '../api/axios';
 
 export default function LiveCamera() {
   const videoRef = useRef(null);
@@ -140,9 +140,7 @@ export default function LiveCamera() {
         detections: detections
       };
       
-      const response = await axios.post('/api/v1/upload-result', payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.post('/upload-result', payload);
       
       toast.success("Live session saved successfully!");
       navigate(`/analysis/${response.data.data.file_id}`);
