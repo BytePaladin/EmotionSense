@@ -206,7 +206,7 @@ export default function LiveCamera() {
           </Box>
         ) : (
           <>
-            <Box sx={{ position: 'relative', width: '100%', maxWidth: 640, minHeight: 480, bgcolor: 'black', borderRadius: 2, overflow: 'hidden', mb: 3 }}>
+            <Box sx={{ position: 'relative', width: '100%', maxWidth: 640, aspectRatio: { xs: '4/3', md: '4/3' }, minHeight: { xs: 240, sm: 360, md: 480 }, bgcolor: 'black', borderRadius: 2, overflow: 'hidden', mb: 3 }}>
               <video
                 ref={videoRef}
                 muted

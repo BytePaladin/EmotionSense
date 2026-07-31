@@ -26,7 +26,7 @@ export default function AnalysisResult({ data }) {
             <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><ShowChart fontSize="small"/> {file.total_detections} frames analyzed</Typography>
           </Stack>
         </Box>
-        <Box sx={{ width: { xs: '100%', md: 'auto' }, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, p: 3, bgcolor: 'action.hover', borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ width: { xs: '100%', md: 'auto' }, display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: { xs: 2, sm: 4 }, p: { xs: 2, sm: 3 }, bgcolor: 'action.hover', borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
           <Box textAlign="center">
             <Typography variant="body2" color="text.secondary" mb={0.5}>Dominant</Typography>
             <Typography variant="h5" fontWeight="bold" sx={{ color: dominantColor }}>
