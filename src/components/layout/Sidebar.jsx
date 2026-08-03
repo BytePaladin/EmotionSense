@@ -22,6 +22,9 @@ import {
   Videocam as VideocamIcon
 } from '@mui/icons-material';
 
+import { useAuth } from '../../hooks/useAuth';
+import { AdminPanelSettings as AdminIcon } from '@mui/icons-material';
+
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: DashboardIcon },
   { to: '/live', label: 'Live Camera', icon: VideocamIcon },
@@ -34,6 +37,7 @@ export default function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
   const theme = useTheme();
   const isLgUp = useMediaQuery(theme.breakpoints.up('lg'));
+  const { user } = useAuth();
 
   const drawerContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -104,6 +108,35 @@ export default function Sidebar({ isOpen, onClose }) {
             </ListItem>
           );
         })}
+
+        {user?.role === 'admin' && (
+          <ListItem disablePadding sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+            <ListItemButton
+              component={NavLink}
+              to="/admin/dashboard"
+              onClick={() => !isLgUp && onClose()}
+              sx={{
+                borderRadius: 2,
+                bgcolor: 'rgba(220, 38, 38, 0.08)',
+                color: 'error.main',
+                '&:hover': {
+                  bgcolor: 'rgba(220, 38, 38, 0.15)',
+                }
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 40, color: 'error.main' }}>
+                <AdminIcon />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Admin Portal" 
+                primaryTypographyProps={{ 
+                  fontWeight: 700,
+                  color: 'error.main'
+                }} 
+              />
+            </ListItemButton>
+          </ListItem>
+        )}
       </List>
 
       <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', textAlign: 'center' }}>

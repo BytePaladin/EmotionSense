@@ -6,7 +6,7 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional, List, Dict, Any
 
 from api.database import init_db, get_db
-from api.auth import verify_password, get_password_hash, create_access_token, get_current_user
+from api.auth import verify_password, get_password_hash, create_access_token, get_current_user, get_current_admin
 from api.utils import validate_password, calculate_emotion_stats
 from api.inference import analyze_image, process_detections
 
@@ -67,7 +67,7 @@ def register(user: RegisterUser):
     user_id = str(uuid.uuid4())
     password_hash = get_password_hash(user.password)
     db.execute(
-        "INSERT INTO users (id, full_name, email, password_hash) VALUES (?, ?, ?, ?)",
+        "INSERT INTO users (id, full_name, email, password_hash, role) VALUES (?, ?, ?, ?, 'user')",
         [user_id, user.full_name.strip(), user.email.lower().strip(), password_hash]
     )
     return {"success": True, "message": "Registration successful", "data": {"id": user_id, "full_name": user.full_name, "email": user.email}}
@@ -83,13 +83,20 @@ def login(user: LoginUser):
     if not verify_password(user.password, db_user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
         
-    token = create_access_token(data={"id": db_user.id, "email": db_user.email})
+    user_role = getattr(db_user, 'role', 'user') if hasattr(db_user, 'role') else 'user'
+    token = create_access_token(data={"id": db_user.id, "email": db_user.email, "role": user_role})
     return {
         "success": True,
         "message": "Login successful",
         "data": {
             "token": token,
-            "user": {"id": db_user.id, "full_name": db_user.full_name, "email": db_user.email, "created_at": db_user.created_at}
+            "user": {
+                "id": db_user.id,
+                "full_name": db_user.full_name,
+                "email": db_user.email,
+                "role": user_role,
+                "created_at": db_user.created_at
+            }
         }
     }
 
@@ -283,3 +290,222 @@ def get_analysis(file_id: str, current_user: dict = Depends(get_current_user)):
     detections = [dict(zip([col for col in det_res.columns], row)) for row in det_res.rows]
     
     return {"success": True, "data": {"file": file_data, "detections": detections}}
+
+# ==========================================
+# --- ADMIN PORTAL ENDPOINTS ---
+# ==========================================
+
+class AdminLoginPayload(BaseModel):
+    email: EmailStr
+    password: str
+
+class AdminActionPayload(BaseModel):
+    confirmation: str
+
+@app.post("/api/v1/admin/login")
+def admin_login(payload: AdminLoginPayload):
+    db = get_db()
+    result = db.execute("SELECT * FROM users WHERE email = ?", [payload.email.lower().strip()])
+    if len(result.rows) == 0:
+        raise HTTPException(status_code=401, detail="Invalid admin credentials")
+    
+    db_user = result.rows[0]
+    if not verify_password(payload.password, db_user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid admin credentials")
+        
+    user_role = getattr(db_user, 'role', 'user') if hasattr(db_user, 'role') else 'user'
+    if user_role != 'admin':
+        raise HTTPException(status_code=403, detail="Access denied: This account does not have administrator privileges")
+        
+    token = create_access_token(data={"id": db_user.id, "email": db_user.email, "role": "admin"})
+    return {
+        "success": True,
+        "message": "Admin login successful",
+        "data": {
+            "token": token,
+            "admin": {
+                "id": db_user.id,
+                "full_name": db_user.full_name,
+                "email": db_user.email,
+                "role": "admin"
+            }
+        }
+    }
+
+@app.get("/api/v1/admin/stats")
+def get_admin_stats(current_admin: dict = Depends(get_current_admin)):
+    db = get_db()
+    
+    # User counts
+    total_users_res = db.execute("SELECT COUNT(*) as total FROM users WHERE role != 'admin'")
+    total_all_users_res = db.execute("SELECT COUNT(*) as total FROM users")
+    active_users_res = db.execute("SELECT COUNT(DISTINCT user_id) as active_count FROM uploaded_files")
+    
+    total_users = total_users_res.rows[0].total if len(total_users_res.rows) > 0 else 0
+    total_all_users = total_all_users_res.rows[0].total if len(total_all_users_res.rows) > 0 else 0
+    active_users = active_users_res.rows[0].active_count if len(active_users_res.rows) > 0 else 0
+    
+    # Uploads and frame detection metrics
+    uploads_res = db.execute("SELECT COUNT(*) as total_uploads, COALESCE(SUM(file_size), 0) as total_size FROM uploaded_files")
+    total_uploads = uploads_res.rows[0].total_uploads if len(uploads_res.rows) > 0 else 0
+    total_size_bytes = uploads_res.rows[0].total_size if len(uploads_res.rows) > 0 else 0
+    
+    det_sum_res = db.execute("SELECT COALESCE(SUM(total_detections), 0) as total_detections, COALESCE(AVG(average_confidence), 0) as avg_confidence FROM emotion_statistics")
+    total_detections = det_sum_res.rows[0].total_detections if len(det_sum_res.rows) > 0 else 0
+    overall_confidence = round(det_sum_res.rows[0].avg_confidence, 2) if len(det_sum_res.rows) > 0 else 0
+    
+    # Format distribution breakdown
+    files_res = db.execute("SELECT file_name, file_type FROM uploaded_files")
+    format_counts = {"live_camera": 0, "image": 0, "video": 0, "other": 0}
+    for row in files_res.rows:
+        ft = str(row.file_type or "").lower()
+        fn = str(row.file_name or "").lower()
+        if "live" in ft or "live" in fn or ft == "live_camera":
+            format_counts["live_camera"] += 1
+        elif "video" in ft or fn.endswith(".mp4") or fn.endswith(".mov") or fn.endswith(".avi"):
+            format_counts["video"] += 1
+        elif "image" in ft or fn.endswith(".jpg") or fn.endswith(".jpeg") or fn.endswith(".png") or fn.endswith(".webp"):
+            format_counts["image"] += 1
+        else:
+            format_counts["other"] += 1
+            
+    # Determine most popular format
+    popular_format = "None"
+    max_format_cnt = 0
+    format_labels = {"live_camera": "Live Camera", "image": "Image Uploads", "video": "Video Uploads", "other": "Other"}
+    for k, v in format_counts.items():
+        if v > max_format_cnt:
+            max_format_cnt = v
+            popular_format = format_labels[k]
+            
+    # Per-Emotion confidence breakdown
+    conf_by_emotion_res = db.execute("SELECT emotion, AVG(confidence) as avg_conf, COUNT(*) as count FROM detection_results GROUP BY emotion")
+    emotion_confidence = {}
+    default_emotions = ["happy", "sad", "angry", "fear", "surprised", "disgust", "neutral"]
+    for e in default_emotions:
+        emotion_confidence[e] = {"avg_confidence": 0, "count": 0}
+        
+    for row in conf_by_emotion_res.rows:
+        emo = str(row.emotion).lower()
+        if emo in emotion_confidence:
+            emotion_confidence[emo] = {
+                "avg_confidence": round(float(row.avg_conf) * (100 if float(row.avg_conf) <= 1.0 else 1), 2),
+                "count": row.count
+            }
+            
+    # Dominant emotion distribution
+    dom_res = db.execute("SELECT dominant_emotion, COUNT(*) as cnt FROM emotion_statistics WHERE dominant_emotion IS NOT NULL GROUP BY dominant_emotion")
+    dominant_distribution = {e: 0 for e in default_emotions}
+    for row in dom_res.rows:
+        emo = str(row.dominant_emotion).lower()
+        if emo in dominant_distribution:
+            dominant_distribution[emo] = row.cnt
+
+    return {
+        "success": True,
+        "data": {
+            "total_users": total_users,
+            "total_all_users": total_all_users,
+            "active_users": active_users,
+            "total_uploads": total_uploads,
+            "total_detections": total_detections,
+            "overall_confidence": overall_confidence,
+            "total_storage_bytes": total_size_bytes,
+            "format_distribution": format_counts,
+            "popular_format": popular_format,
+            "emotion_confidence": emotion_confidence,
+            "dominant_distribution": dominant_distribution
+        }
+    }
+
+@app.get("/api/v1/admin/activity")
+def get_admin_activity(limit: int = 50, current_admin: dict = Depends(get_current_admin)):
+    db = get_db()
+    sql = """
+        SELECT uf.id, uf.user_id, u.full_name, u.email, uf.file_name, uf.file_type, uf.file_size, uf.upload_time, uf.processing_status, es.dominant_emotion, es.average_confidence, es.total_detections 
+        FROM uploaded_files uf 
+        LEFT JOIN users u ON uf.user_id = u.id 
+        LEFT JOIN emotion_statistics es ON uf.id = es.file_id 
+        ORDER BY uf.upload_time DESC 
+        LIMIT ?
+    """
+    res = db.execute(sql, [limit])
+    activities = [dict(zip([col for col in res.columns], row)) for row in res.rows]
+    return {"success": True, "data": {"activities": activities}}
+
+@app.get("/api/v1/admin/users")
+def get_admin_users(search: str = "", current_admin: dict = Depends(get_current_admin)):
+    db = get_db()
+    sql = """
+        SELECT u.id, u.full_name, u.email, u.role, u.created_at, 
+               COUNT(DISTINCT uf.id) as total_uploads, 
+               COALESCE(SUM(es.total_detections), 0) as total_detections, 
+               COALESCE(AVG(es.average_confidence), 0) as average_confidence
+        FROM users u 
+        LEFT JOIN uploaded_files uf ON u.id = uf.user_id 
+        LEFT JOIN emotion_statistics es ON uf.id = es.file_id 
+    """
+    args = []
+    if search:
+        sql += " WHERE u.full_name LIKE ? OR u.email LIKE ? "
+        args.extend([f"%{search}%", f"%{search}%"])
+    sql += " GROUP BY u.id ORDER BY u.created_at DESC"
+    
+    res = db.execute(sql, args)
+    users_list = []
+    for row in res.rows:
+        u_dict = dict(zip([col for col in res.columns], row))
+        u_dict["average_confidence"] = round(float(u_dict.get("average_confidence") or 0), 2)
+        users_list.append(u_dict)
+        
+    return {"success": True, "data": {"users": users_list}}
+
+# Option 1: Delete Single User & Associated Data
+@app.delete("/api/v1/admin/users/{user_id}")
+def admin_delete_user(user_id: str, current_admin: dict = Depends(get_current_admin)):
+    if user_id == current_admin["id"]:
+        raise HTTPException(status_code=400, detail="Cannot delete your own active admin account")
+        
+    db = get_db()
+    user_check = db.execute("SELECT id, email, role FROM users WHERE id = ?", [user_id])
+    if len(user_check.rows) == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # Get all file IDs for cascading deletion
+    files_res = db.execute("SELECT id FROM uploaded_files WHERE user_id = ?", [user_id])
+    for f in files_res.rows:
+        db.execute("DELETE FROM detection_results WHERE file_id = ?", [f.id])
+        db.execute("DELETE FROM emotion_statistics WHERE file_id = ?", [f.id])
+        
+    db.execute("DELETE FROM uploaded_files WHERE user_id = ?", [user_id])
+    db.execute("DELETE FROM users WHERE id = ?", [user_id])
+    
+    return {"success": True, "message": "User and all associated activity data deleted successfully"}
+
+# Option 2: Erase All Analysis & Detection Data (Preserve User Logins)
+@app.post("/api/v1/admin/purge-activity")
+def admin_purge_activity(payload: AdminActionPayload, current_admin: dict = Depends(get_current_admin)):
+    if payload.confirmation != "PURGE_ACTIVITY":
+        raise HTTPException(status_code=400, detail="Invalid confirmation phrase. Please type 'PURGE_ACTIVITY'")
+        
+    db = get_db()
+    db.execute("DELETE FROM detection_results")
+    db.execute("DELETE FROM emotion_statistics")
+    db.execute("DELETE FROM uploaded_files")
+    
+    return {"success": True, "message": "All activity, detection logs, and session statistics have been erased. User accounts preserved."}
+
+# Option 3: Full Platform Reset (Wipe All Data + Non-Admin Users)
+@app.post("/api/v1/admin/reset-platform")
+def admin_reset_platform(payload: AdminActionPayload, current_admin: dict = Depends(get_current_admin)):
+    if payload.confirmation != "RESET_ALL_DATA":
+        raise HTTPException(status_code=400, detail="Invalid confirmation phrase. Please type 'RESET_ALL_DATA'")
+        
+    db = get_db()
+    db.execute("DELETE FROM detection_results")
+    db.execute("DELETE FROM emotion_statistics")
+    db.execute("DELETE FROM uploaded_files")
+    db.execute("DELETE FROM users WHERE role != 'admin'")
+    
+    return {"success": True, "message": "Full platform reset complete. All non-admin user accounts and analytics records have been cleared."}
+

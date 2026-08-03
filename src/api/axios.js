@@ -9,7 +9,11 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('emotionsense_token');
+    const isAdminRoute = window.location.pathname.startsWith('/admin') || config.url?.includes('/admin/');
+    const token = isAdminRoute
+      ? (localStorage.getItem('emotionsense_admin_token') || localStorage.getItem('emotionsense_token'))
+      : localStorage.getItem('emotionsense_token');
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -22,10 +26,18 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('emotionsense_token');
-      localStorage.removeItem('emotionsense_user');
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      if (window.location.pathname.startsWith('/admin')) {
+        localStorage.removeItem('emotionsense_admin_token');
+        localStorage.removeItem('emotionsense_admin');
+        if (window.location.pathname !== '/admin/login') {
+          window.location.href = '/admin/login';
+        }
+      } else {
+        localStorage.removeItem('emotionsense_token');
+        localStorage.removeItem('emotionsense_user');
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);
@@ -33,3 +45,4 @@ api.interceptors.response.use(
 );
 
 export default api;
+

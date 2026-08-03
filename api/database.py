@@ -167,10 +167,16 @@ def init_db():
             full_name TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
+            role TEXT DEFAULT 'user',
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
         )
     ''')
+    try:
+        db.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'")
+    except Exception:
+        pass
+
     db.execute('''
         CREATE TABLE IF NOT EXISTS uploaded_files (
             id TEXT PRIMARY KEY,
@@ -212,3 +218,24 @@ def init_db():
             FOREIGN KEY (file_id) REFERENCES uploaded_files(id) ON DELETE CASCADE
         )
     ''')
+    
+    # Ensure default admin account exists
+    try:
+        import uuid
+        from passlib.context import CryptContext
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        admin_email = "emotionsense@gmail.com"
+        admin_check = db.execute("SELECT id, role FROM users WHERE email = ?", [admin_email])
+        if len(admin_check.rows) == 0:
+            admin_id = str(uuid.uuid4())
+            admin_hash = pwd_context.hash("cse327@AUQ")
+            db.execute(
+                "INSERT INTO users (id, full_name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)",
+                [admin_id, "EmotionSense Admin", admin_email, admin_hash, "admin"]
+            )
+        else:
+            # Ensure role is admin
+            db.execute("UPDATE users SET role = 'admin' WHERE email = ?", [admin_email])
+    except Exception as e:
+        print(f"Admin init notice: {e}")
+
