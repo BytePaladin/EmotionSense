@@ -181,14 +181,14 @@ export default function AdminDashboard() {
       return;
     }
 
-    const headers = ['Session ID', 'User Name', 'User Email', 'File Name', 'Format', 'Size (Bytes)', 'Dominant Emotion', 'Avg Confidence (%)', 'Total Detections', 'Timestamp (GMT+6)'];
+    const headers = ['Session ID', 'User Name', 'User Email', 'File Name', 'Format', 'Size (KB)', 'Dominant Emotion', 'Avg Confidence (%)', 'Total Detections', 'Timestamp (GMT+6)'];
     const rows = activityLogs.map(log => [
       `"${log.id}"`,
       `"${log.full_name || 'Guest/User'}"`,
       `"${log.email || 'N/A'}"`,
       `"${log.file_name || 'N/A'}"`,
       `"${log.file_type || 'N/A'}"`,
-      log.file_size || 0,
+      log.file_size ? (log.file_size / 1024).toFixed(2) : '0.00',
       `"${log.dominant_emotion || 'N/A'}"`,
       log.average_confidence || 0,
       log.total_detections || 0,
