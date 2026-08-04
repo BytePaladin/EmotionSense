@@ -9,14 +9,18 @@ import {
   FormControlLabel,
   Switch,
   Chip,
-  Stack
+  Stack,
+  Tooltip
 } from '@mui/material';
 import {
   Videocam,
   Stop,
   PlayArrow,
   RecordVoiceOver as CoachIcon,
-  AutoAwesome as SparkleIcon
+  AutoAwesome as SparkleIcon,
+  TouchApp as TouchAppIcon,
+  CheckCircle as CheckCircleIcon,
+  Tune as TuneIcon
 } from '@mui/icons-material';
 import * as faceapi from '@vladmandic/face-api';
 import { useNavigate } from 'react-router-dom';
@@ -24,6 +28,7 @@ import { useToast } from '../hooks/useToast';
 import api from '../api/axios';
 import CoachFeedbackOverlay from '../components/coach/CoachFeedbackOverlay';
 import CoachScoreModal from '../components/coach/CoachScoreModal';
+import { EMOTION_COLORS, getEmotionLabel, getEmotionEmoji } from '../utils/emotionColors';
 
 const EMOTION_MAP = {
   neutral: 'neutral',
@@ -41,12 +46,18 @@ export default function LiveCamera() {
   const streamRef = useRef(null);
   const detectionIntervalRef = useRef(null);
   const detectionsRef = useRef([]);
+  const correctionsBufferRef = useRef([]);
 
   const [isModelsLoaded, setIsModelsLoaded] = useState(false);
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [detectionCount, setDetectionCount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+
+  // Real-time Live Emotion State
+  const [currentLiveEmotion, setCurrentLiveEmotion] = useState(null);
+  const [currentLiveConfidence, setCurrentLiveConfidence] = useState(null);
+  const [lastOverriddenEmotion, setLastOverriddenEmotion] = useState(null);
 
   // Coach Mode State
   const [isCoachMode, setIsCoachMode] = useState(false);
@@ -172,6 +183,9 @@ export default function LiveCamera() {
           const timestamp = Number(((Date.now() - startTime) / 1000.0).toFixed(2));
           const confidence = Number(expressions[rawDominant].toFixed(2));
 
+          setCurrentLiveEmotion(mappedEmotion);
+          setCurrentLiveConfidence(confidence);
+
           const newDetection = { timestamp, emotion: mappedEmotion, confidence };
           if (detectionsRef.current.length < 500) {
             detectionsRef.current.push(newDetection);
@@ -194,10 +208,60 @@ export default function LiveCamera() {
     }, 500);
   };
 
+  const handleOverrideEmotion = (targetEmotion) => {
+    if (!isSessionActive) return;
+
+    const predicted = currentLiveEmotion || 'neutral';
+    const currentTime = detectionsRef.current.length > 0
+      ? detectionsRef.current[detectionsRef.current.length - 1].timestamp
+      : 0;
+
+    // 1. Buffer for backend model feedback sync
+    correctionsBufferRef.current.push({
+      timestamp: currentTime,
+      predicted_emotion: predicted,
+      corrected_emotion: targetEmotion
+    });
+
+    // 2. Overwrite latest detections in memory
+    const overrideEntry = {
+      timestamp: currentTime,
+      emotion: targetEmotion,
+      confidence: 1.0
+    };
+
+    if (detectionsRef.current.length > 0) {
+      detectionsRef.current[detectionsRef.current.length - 1] = overrideEntry;
+      if (detectionsRef.current.length > 1) {
+        detectionsRef.current[detectionsRef.current.length - 2].emotion = targetEmotion;
+      }
+    } else {
+      detectionsRef.current.push(overrideEntry);
+    }
+
+    // 3. Update live state
+    setCurrentLiveEmotion(targetEmotion);
+    setCurrentLiveConfidence(1.0);
+    setLastOverriddenEmotion(targetEmotion);
+
+    // 4. Adapt Coach Mode HUD immediately if active
+    if (isCoachMode && detectionsRef.current.length > 0) {
+      evaluateCoachFeedback(detectionsRef.current);
+    }
+
+    // 5. User feedback notification
+    const cfg = EMOTION_COLORS[targetEmotion];
+    toast.success(`Corrected to ${cfg?.emoji || ''} ${cfg?.label || targetEmotion} (Ground Truth recorded)`);
+  };
+
   const handleStartSession = async () => {
     setError('');
     detectionsRef.current = [];
+    correctionsBufferRef.current = [];
     setDetectionCount(0);
+    setCurrentLiveEmotion(null);
+    setCurrentLiveConfidence(null);
+    setLastOverriddenEmotion(null);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
@@ -290,6 +354,22 @@ export default function LiveCamera() {
       const response = await api.post('/upload-result', payload);
       const newFileId = response.data?.data?.file_id;
       setSavedAnalysisId(newFileId);
+
+      // Background sync all buffered live corrections to /api/v1/feedback
+      if (newFileId && correctionsBufferRef.current.length > 0) {
+        const buffered = [...correctionsBufferRef.current];
+        Promise.allSettled(
+          buffered.map((c) =>
+            api.post('/feedback', {
+              file_id: newFileId,
+              frame_timestamp: c.timestamp,
+              predicted_emotion: c.predicted_emotion,
+              corrected_emotion: c.corrected_emotion,
+              comments: 'Live camera session quick-correction'
+            })
+          )
+        ).catch((e) => console.warn('Background feedback sync warning:', e));
+      }
 
       toast.success(isCoachMode ? 'Coach rehearsal debrief ready!' : 'Live session saved successfully!');
 
@@ -413,7 +493,7 @@ export default function LiveCamera() {
                 bgcolor: 'black',
                 borderRadius: 2,
                 overflow: 'hidden',
-                mb: 3
+                mb: 2
               }}
             >
               <video
@@ -456,6 +536,108 @@ export default function LiveCamera() {
                 </Box>
               )}
             </Box>
+
+            {/* LIVE REAL-TIME EMOTION QUICK-CORRECTION DOCKED BAR */}
+            {isSessionActive && (
+              <Box
+                sx={{
+                  width: '100%',
+                  maxWidth: 640,
+                  mb: 3,
+                  p: 2,
+                  borderRadius: 3,
+                  bgcolor: (theme) =>
+                    theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.04)' : 'rgba(99, 102, 241, 0.04)',
+                  border: '1px solid',
+                  borderColor: (theme) =>
+                    theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(99, 102, 241, 0.2)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1.5,
+                  animation: 'fadeIn 0.3s ease'
+                }}
+              >
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" color="text.secondary" fontWeight="600">
+                      Live AI Classification:
+                    </Typography>
+                    {currentLiveEmotion ? (
+                      <Chip
+                        icon={<span>{getEmotionEmoji(currentLiveEmotion)}</span>}
+                        label={`${getEmotionLabel(currentLiveEmotion)} (${Math.round((currentLiveConfidence || 0) * 100)}%)`}
+                        size="small"
+                        sx={{
+                          fontWeight: 700,
+                          bgcolor: EMOTION_COLORS[currentLiveEmotion]?.light || 'action.selected',
+                          color: EMOTION_COLORS[currentLiveEmotion]?.bg || 'text.primary',
+                          border: `1px solid ${EMOTION_COLORS[currentLiveEmotion]?.bg || 'divider'}`
+                        }}
+                      />
+                    ) : (
+                      <Chip label="Tracking face..." size="small" variant="outlined" />
+                    )}
+                  </Box>
+
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      color: 'primary.main',
+                      fontWeight: 700
+                    }}
+                  >
+                    <TouchAppIcon sx={{ fontSize: 15 }} />
+                    Wrong emotion? Tap your actual feeling below:
+                  </Typography>
+                </Box>
+
+                {/* 7 Emotion Correction Chips */}
+                <Stack direction="row" flexWrap="wrap" gap={1} justifyContent="center">
+                  {Object.keys(EMOTION_COLORS).map((emoKey) => {
+                    const colorCfg = EMOTION_COLORS[emoKey];
+                    const isCurrentAI = currentLiveEmotion === emoKey;
+                    const isJustOverridden = lastOverriddenEmotion === emoKey;
+
+                    return (
+                      <Tooltip key={emoKey} title={`Override current detection to ${colorCfg.label}`}>
+                        <Chip
+                          clickable
+                          onClick={() => handleOverrideEmotion(emoKey)}
+                          icon={<span>{colorCfg.emoji}</span>}
+                          label={colorCfg.label}
+                          variant={isCurrentAI || isJustOverridden ? 'filled' : 'outlined'}
+                          sx={{
+                            fontWeight: isCurrentAI || isJustOverridden ? 700 : 500,
+                            fontSize: '0.8125rem',
+                            py: 1.8,
+                            px: 0.8,
+                            borderRadius: 2,
+                            borderColor: isCurrentAI ? colorCfg.bg : 'divider',
+                            bgcolor: isCurrentAI
+                              ? `${colorCfg.bg}25`
+                              : isJustOverridden
+                              ? colorCfg.bg
+                              : 'transparent',
+                            color: isJustOverridden ? '#ffffff' : isCurrentAI ? colorCfg.bg : 'text.primary',
+                            borderWidth: isCurrentAI ? '2px' : '1px',
+                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                            '&:hover': {
+                              bgcolor: `${colorCfg.bg}30`,
+                              borderColor: colorCfg.bg,
+                              transform: 'translateY(-2px)',
+                              boxShadow: `0 4px 12px ${colorCfg.bg}30`
+                            }
+                          }}
+                        />
+                      </Tooltip>
+                    );
+                  })}
+                </Stack>
+              </Box>
+            )}
 
             <Box sx={{ display: 'flex', gap: 2 }}>
               {!isSessionActive ? (
