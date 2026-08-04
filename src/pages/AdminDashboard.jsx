@@ -114,11 +114,19 @@ export default function AdminDashboard() {
         api.get('/admin/feedback')
       ]);
 
+      const fbData = feedbackRes.data.data || {};
+      const fbList = fbData.feedback || [];
+      const totalReports = fbData.total_reports ?? fbData.stats?.total_reports ?? fbList.length;
+      const topConfusions = fbData.top_confusions ?? fbData.stats?.top_confusions ?? [];
+
       setStats(statsRes.data.data);
       setActivityLogs(activityRes.data.data.activities || []);
       setUsers(usersRes.data.data.users || []);
-      setFeedbackLogs(feedbackRes.data.data.feedback || []);
-      setFeedbackStats(feedbackRes.data.data.stats || { total_reports: 0, top_confusions: [] });
+      setFeedbackLogs(fbList);
+      setFeedbackStats({
+        total_reports: totalReports,
+        top_confusions: topConfusions
+      });
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to load administrative analytics');
     } finally {
@@ -782,20 +790,46 @@ export default function AdminDashboard() {
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 1 }}>
                   {feedbackStats.top_confusions && feedbackStats.top_confusions.length > 0 ? (
-                    feedbackStats.top_confusions.map((c, idx) => (
-                      <Chip
-                        key={idx}
-                        icon={<CompareArrowsIcon fontSize="small" />}
-                        label={`${c.pair}: ${c.count} flags`}
-                        sx={{
-                          fontWeight: 'bold',
-                          borderRadius: 2,
-                          bgcolor: 'action.selected',
-                          border: '1px solid',
-                          borderColor: 'divider'
-                        }}
-                      />
-                    ))
+                    feedbackStats.top_confusions.map((c, idx) => {
+                      const pairParts = c.pair ? c.pair.split(' -> ') : [];
+                      const pred = pairParts[0] || 'neutral';
+                      const corr = pairParts[1] || 'neutral';
+                      const predCfg = EMOTION_COLORS[pred.toLowerCase()] || { emoji: '😐', label: pred, bg: '#64748b' };
+                      const corrCfg = EMOTION_COLORS[corr.toLowerCase()] || { emoji: '🎯', label: corr, bg: '#6366f1' };
+
+                      return (
+                        <Chip
+                          key={idx}
+                          label={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                              <span>{predCfg.emoji} {predCfg.label}</span>
+                              <span style={{ color: '#6366f1', fontWeight: 'bold' }}>➔</span>
+                              <span>{corrCfg.emoji} {corrCfg.label}</span>
+                              <Chip
+                                label={`${c.count} flag${c.count > 1 ? 's' : ''}`}
+                                size="small"
+                                sx={{
+                                  height: 18,
+                                  fontSize: '0.65rem',
+                                  fontWeight: 'bold',
+                                  bgcolor: '#6366f1',
+                                  color: '#fff',
+                                  ml: 0.5
+                                }}
+                              />
+                            </Box>
+                          }
+                          sx={{
+                            fontWeight: 'bold',
+                            borderRadius: 2,
+                            bgcolor: 'action.selected',
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            py: 2
+                          }}
+                        />
+                      );
+                    })
                   ) : (
                     <Typography variant="body2" color="text.secondary">
                       No significant confusion patterns recorded yet

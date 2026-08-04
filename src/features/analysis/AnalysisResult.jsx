@@ -54,6 +54,116 @@ export default function AnalysisResult({ data }) {
         initialPredicted={file.dominant_emotion || 'neutral'}
       />
 
+      {/* Ground Truth User Corrections Banner (if any submitted) */}
+      {data.feedback && data.feedback.length > 0 && (
+        <MuiCard
+          sx={{
+            p: 2.5,
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: 'rgba(99, 102, 241, 0.3)',
+            bgcolor: (theme) =>
+              theme.palette.mode === 'dark' ? 'rgba(99, 102, 241, 0.05)' : 'rgba(99, 102, 241, 0.03)'
+          }}
+        >
+          <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2} flexWrap="wrap" gap={1}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box
+                sx={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 2,
+                  bgcolor: 'rgba(99, 102, 241, 0.15)',
+                  color: '#6366f1',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <FlagIcon fontSize="small" />
+              </Box>
+              <Typography variant="subtitle1" fontWeight="bold">
+                Ground-Truth Corrections ({data.feedback.length})
+              </Typography>
+            </Box>
+            <Typography variant="caption" color="text.secondary">
+              Submitted for model performance telemetry & training
+            </Typography>
+          </Stack>
+
+          <Stack direction="row" flexWrap="wrap" gap={1.5}>
+            {data.feedback.map((fb, idx) => {
+              const predColor = getEmotionColor(fb.predicted_emotion);
+              const corrColor = getEmotionColor(fb.corrected_emotion);
+
+              return (
+                <Box
+                  key={fb.id || idx}
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1,
+                    minWidth: 220
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                    <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                      {fb.frame_timestamp !== null && fb.frame_timestamp !== undefined
+                        ? `⏱️ ${Number(fb.frame_timestamp).toFixed(1)}s in session`
+                        : `Entry #${idx + 1}`}
+                    </Typography>
+                    <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.68rem' }}>
+                      {formatFullDateTimeGMT6(fb.created_at)}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Chip
+                      icon={<span>{getEmotionEmoji(fb.predicted_emotion)}</span>}
+                      label={getEmotionLabel(fb.predicted_emotion)}
+                      size="small"
+                      sx={{
+                        bgcolor: `${predColor}15`,
+                        color: predColor,
+                        border: `1px solid ${predColor}40`,
+                        fontWeight: 600,
+                        fontSize: '0.72rem'
+                      }}
+                    />
+                    <Typography variant="body2" color="text.secondary" fontWeight="bold">
+                      ➔
+                    </Typography>
+                    <Chip
+                      icon={<span>{getEmotionEmoji(fb.corrected_emotion)}</span>}
+                      label={getEmotionLabel(fb.corrected_emotion)}
+                      size="small"
+                      sx={{
+                        bgcolor: `${corrColor}25`,
+                        color: corrColor,
+                        border: `1.5px solid ${corrColor}`,
+                        fontWeight: 700,
+                        fontSize: '0.72rem'
+                      }}
+                    />
+                  </Box>
+
+                  {fb.comments && (
+                    <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                      "{fb.comments}"
+                    </Typography>
+                  )}
+                </Box>
+              );
+            })}
+          </Stack>
+        </MuiCard>
+      )}
+
       <MuiCard sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 4, alignItems: { xs: 'stretch', md: 'center' }, p: 3, borderLeft: '4px solid', borderLeftColor: dominantColor, borderRadius: 3 }}>
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>

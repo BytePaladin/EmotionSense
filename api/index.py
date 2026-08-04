@@ -252,6 +252,26 @@ def get_history(page: int = 1, limit: int = 10, search: str = "", current_user: 
     data_res = db.execute(data_sql, args + [limit, offset])
     history = [dict(zip([col for col in data_res.columns], row)) for row in data_res.rows]
     
+    # Fetch user corrections / ground-truth feedback for each session in current page
+    file_ids = [item["id"] for item in history]
+    feedback_map = {}
+    if file_ids:
+        placeholders = ",".join(["?"] * len(file_ids))
+        fb_sql = f"SELECT id, file_id, frame_timestamp, predicted_emotion, corrected_emotion, comments, created_at FROM model_feedback WHERE user_id = ? AND file_id IN ({placeholders}) ORDER BY created_at DESC"
+        fb_res = db.execute(fb_sql, [user_id] + file_ids)
+        for row in fb_res.rows:
+            fb_dict = dict(zip([col for col in fb_res.columns], row))
+            fid = fb_dict["file_id"]
+            if fid not in feedback_map:
+                feedback_map[fid] = []
+            feedback_map[fid].append(fb_dict)
+            
+    for item in history:
+        item_fb = feedback_map.get(item["id"], [])
+        item["feedback"] = item_fb
+        item["feedback_count"] = len(item_fb)
+        item["has_correction"] = len(item_fb) > 0
+    
     import math
     return {
         "success": True,
@@ -286,10 +306,13 @@ def get_analysis(file_id: str, current_user: dict = Depends(get_current_user)):
         
     det_res = db.execute("SELECT timestamp, emotion, confidence FROM detection_results WHERE file_id = ? ORDER BY timestamp ASC", [file_id])
     
+    fb_res = db.execute("SELECT id, frame_timestamp, predicted_emotion, corrected_emotion, comments, created_at FROM model_feedback WHERE file_id = ? AND user_id = ? ORDER BY created_at DESC", [file_id, user_id])
+    
     file_data = dict(zip([col for col in file_res.columns], file_res.rows[0]))
     detections = [dict(zip([col for col in det_res.columns], row)) for row in det_res.rows]
+    feedback = [dict(zip([col for col in fb_res.columns], row)) for row in fb_res.rows]
     
-    return {"success": True, "data": {"file": file_data, "detections": detections}}
+    return {"success": True, "data": {"file": file_data, "detections": detections, "feedback": feedback}}
 
 # ==========================================
 # --- ADMIN PORTAL ENDPOINTS ---
@@ -560,14 +583,18 @@ def admin_get_feedback(current_admin: dict = Depends(get_current_admin)):
         pair = f"{item['predicted_emotion']} -> {item['corrected_emotion']}"
         confusion_map[pair] = confusion_map.get(pair, 0) + 1
         
-    top_confusions = sorted([{"pair": k, "count": v} for k, v in confusion_map.items()], key=lambda x: x["count"], reverse=True)
+    stats_data = {
+        "total_reports": len(feedback_list),
+        "top_confusions": top_confusions
+    }
     
     return {
         "success": True,
         "data": {
             "total_reports": len(feedback_list),
             "feedback": feedback_list,
-            "top_confusions": top_confusions
+            "top_confusions": top_confusions,
+            "stats": stats_data
         }
     }
 
