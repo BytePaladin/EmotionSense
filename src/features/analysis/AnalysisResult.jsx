@@ -5,7 +5,7 @@ import EmotionTimeline from '../../components/charts/EmotionTimeline';
 import ConfidenceTrend from '../../components/charts/ConfidenceTrend';
 import { getEmotionLabel, getEmotionColor, getEmotionEmoji } from '../../utils/emotionColors';
 import { formatFullDateTimeGMT6 } from '../../utils/dateUtils';
-import { Box, Card as MuiCard, Typography, Grid, Stack, Divider, LinearProgress, Button, CircularProgress } from '@mui/material';
+import { Box, Card as MuiCard, Typography, Grid, Stack, Divider, LinearProgress, Button, CircularProgress, Chip } from '@mui/material';
 import AnalysisPdfReport, { exportAnalysisToPdf } from '../../components/reports/AnalysisPdfReport';
 import FeedbackModal from '../../components/feedback/FeedbackModal';
 import toast from 'react-hot-toast';

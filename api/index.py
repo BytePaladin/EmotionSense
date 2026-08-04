@@ -583,6 +583,8 @@ def admin_get_feedback(current_admin: dict = Depends(get_current_admin)):
         pair = f"{item['predicted_emotion']} -> {item['corrected_emotion']}"
         confusion_map[pair] = confusion_map.get(pair, 0) + 1
         
+    top_confusions = sorted([{"pair": k, "count": v} for k, v in confusion_map.items()], key=lambda x: x["count"], reverse=True)
+
     stats_data = {
         "total_reports": len(feedback_list),
         "top_confusions": top_confusions
