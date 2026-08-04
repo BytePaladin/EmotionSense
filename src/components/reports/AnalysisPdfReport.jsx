@@ -102,7 +102,7 @@ const AnalysisPdfReport = forwardRef(({ data, user }, ref) => {
             </h1>
           </div>
           <p style={{ margin: '4px 0 0 20px', fontSize: '12px', color: '#6b7280' }}>
-            CSE327 Automated Facial Expression Recognition & Behavioral Telemetry
+            Automated Facial Expression Recognition & Behavioral Telemetry
           </p>
         </div>
         <div style={{ textAlign: 'right' }}>
@@ -207,11 +207,6 @@ const AnalysisPdfReport = forwardRef(({ data, user }, ref) => {
         </ul>
       </div>
 
-      {/* Verification Footer */}
-      <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: '#9ca3af' }}>
-        <div>EmotionSense Cognitive Intelligence Suite • Department of Computer Science & Engineering</div>
-        <div>System Verified • Safe for Course Submission</div>
-      </div>
     </div>
   );
 });
