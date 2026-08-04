@@ -44,7 +44,9 @@ import {
   FilterList as FilterListIcon,
   Feedback as FeedbackIcon,
   Assessment as AssessmentIcon,
-  CompareArrows as CompareArrowsIcon
+  CompareArrows as CompareArrowsIcon,
+  Refresh as RefreshIcon,
+  Download as DownloadIcon
 } from '@mui/icons-material';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
@@ -237,8 +239,8 @@ export default function AdminDashboard() {
     const headers = ['Feedback ID', 'User Name', 'User Email', 'File Name', 'Model Predicted', 'User Corrected', 'Comments', 'Timestamp (GMT+6)'];
     const rows = feedbackLogs.map(fb => [
       `"${fb.id}"`,
-      `"${fb.full_name || 'Anonymous'}"`,
-      `"${fb.email || 'N/A'}"`,
+      `"${fb.user_name || fb.full_name || 'Anonymous'}"`,
+      `"${fb.user_email || fb.email || 'N/A'}"`,
       `"${fb.file_name || 'N/A'}"`,
       `"${fb.predicted_emotion || 'N/A'}"`,
       `"${fb.corrected_emotion || 'N/A'}"`,
@@ -857,10 +859,10 @@ export default function AdminDashboard() {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" fontWeight="600">
-                            {fb.full_name || 'Anonymous'}
+                            {fb.user_name || fb.full_name || 'Anonymous'}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {fb.email || 'N/A'}
+                            {fb.user_email || fb.email || 'N/A'}
                           </Typography>
                         </TableCell>
                         <TableCell>
