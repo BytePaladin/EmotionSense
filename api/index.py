@@ -476,7 +476,9 @@ def admin_delete_user(user_id: str, current_admin: dict = Depends(get_current_ad
     for f in files_res.rows:
         db.execute("DELETE FROM detection_results WHERE file_id = ?", [f.id])
         db.execute("DELETE FROM emotion_statistics WHERE file_id = ?", [f.id])
+        db.execute("DELETE FROM model_feedback WHERE file_id = ?", [f.id])
         
+    db.execute("DELETE FROM model_feedback WHERE user_id = ?", [user_id])
     db.execute("DELETE FROM uploaded_files WHERE user_id = ?", [user_id])
     db.execute("DELETE FROM users WHERE id = ?", [user_id])
     
@@ -491,6 +493,7 @@ def admin_purge_activity(payload: AdminActionPayload, current_admin: dict = Depe
     db = get_db()
     db.execute("DELETE FROM detection_results")
     db.execute("DELETE FROM emotion_statistics")
+    db.execute("DELETE FROM model_feedback")
     db.execute("DELETE FROM uploaded_files")
     
     return {"success": True, "message": "All activity, detection logs, and session statistics have been erased. User accounts preserved."}
@@ -504,8 +507,74 @@ def admin_reset_platform(payload: AdminActionPayload, current_admin: dict = Depe
     db = get_db()
     db.execute("DELETE FROM detection_results")
     db.execute("DELETE FROM emotion_statistics")
+    db.execute("DELETE FROM model_feedback")
     db.execute("DELETE FROM uploaded_files")
     db.execute("DELETE FROM users WHERE role != 'admin'")
     
     return {"success": True, "message": "Full platform reset complete. All non-admin user accounts and analytics records have been cleared."}
+
+# --- Model Feedback & Quality Evaluation ---
+class FeedbackPayload(BaseModel):
+    file_id: str
+    frame_timestamp: Optional[float] = None
+    predicted_emotion: str
+    corrected_emotion: str
+    comments: Optional[str] = None
+
+@app.post("/api/v1/feedback")
+def submit_feedback(payload: FeedbackPayload, current_user: dict = Depends(get_current_user)):
+    db = get_db()
+    feedback_id = str(uuid.uuid4())
+    
+    db.execute(
+        "INSERT INTO model_feedback (id, user_id, file_id, frame_timestamp, predicted_emotion, corrected_emotion, comments) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [
+            feedback_id,
+            current_user["id"],
+            payload.file_id,
+            payload.frame_timestamp,
+            payload.predicted_emotion.lower().strip(),
+            payload.corrected_emotion.lower().strip(),
+            (payload.comments or "").strip()
+        ]
+    )
+    return {"success": True, "message": "Feedback submitted successfully. Thank you for helping improve AI model accuracy!", "data": {"id": feedback_id}}
+
+@app.get("/api/v1/admin/feedback")
+def admin_get_feedback(current_admin: dict = Depends(get_current_admin)):
+    db = get_db()
+    
+    sql = """
+        SELECT mf.id, mf.file_id, mf.frame_timestamp, mf.predicted_emotion, mf.corrected_emotion, 
+               mf.comments, mf.created_at, u.full_name as user_name, u.email as user_email, uf.file_name
+        FROM model_feedback mf
+        LEFT JOIN users u ON mf.user_id = u.id
+        LEFT JOIN uploaded_files uf ON mf.file_id = uf.id
+        ORDER BY mf.created_at DESC
+    """
+    res = db.execute(sql)
+    feedback_list = [dict(zip([col for col in res.columns], row)) for row in res.rows]
+    
+    confusion_map = {}
+    for item in feedback_list:
+        pair = f"{item['predicted_emotion']} -> {item['corrected_emotion']}"
+        confusion_map[pair] = confusion_map.get(pair, 0) + 1
+        
+    top_confusions = sorted([{"pair": k, "count": v} for k, v in confusion_map.items()], key=lambda x: x["count"], reverse=True)
+    
+    return {
+        "success": True,
+        "data": {
+            "total_reports": len(feedback_list),
+            "feedback": feedback_list,
+            "top_confusions": top_confusions
+        }
+    }
+
+@app.delete("/api/v1/admin/feedback/{feedback_id}")
+def admin_delete_feedback(feedback_id: str, current_admin: dict = Depends(get_current_admin)):
+    db = get_db()
+    db.execute("DELETE FROM model_feedback WHERE id = ?", [feedback_id])
+    return {"success": True, "message": "Feedback record dismissed"}
+
 

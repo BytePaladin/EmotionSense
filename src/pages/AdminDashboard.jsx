@@ -35,15 +35,16 @@ import {
   TrendingUp as TrendingUpIcon,
   Storage as StorageIcon,
   Videocam as VideocamIcon,
-  Refresh as RefreshIcon,
-  Download as DownloadIcon,
   Delete as DeleteIcon,
   WarningAmber as WarningIcon,
   Search as SearchIcon,
   History as HistoryIcon,
   Shield as ShieldIcon,
   CheckCircle as CheckCircleIcon,
-  FilterList as FilterListIcon
+  FilterList as FilterListIcon,
+  Feedback as FeedbackIcon,
+  Assessment as AssessmentIcon,
+  CompareArrows as CompareArrowsIcon
 } from '@mui/icons-material';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
@@ -62,6 +63,8 @@ export default function AdminDashboard() {
   const [activityLogs, setActivityLogs] = useState([]);
   const [users, setUsers] = useState([]);
   const [userSearch, setUserSearch] = useState('');
+  const [feedbackLogs, setFeedbackLogs] = useState([]);
+  const [feedbackStats, setFeedbackStats] = useState({ total_reports: 0, top_confusions: [] });
 
   // Dialog States
   const [deleteUserDialog, setDeleteUserDialog] = useState({ open: false, user: null, loading: false });
@@ -102,15 +105,18 @@ export default function AdminDashboard() {
     else setRefreshing(true);
 
     try {
-      const [statsRes, activityRes, usersRes] = await Promise.all([
+      const [statsRes, activityRes, usersRes, feedbackRes] = await Promise.all([
         api.get('/admin/stats'),
         api.get('/admin/activity?limit=50'),
-        api.get(`/admin/users${userSearch ? `?search=${encodeURIComponent(userSearch)}` : ''}`)
+        api.get(`/admin/users${userSearch ? `?search=${encodeURIComponent(userSearch)}` : ''}`),
+        api.get('/admin/feedback')
       ]);
 
       setStats(statsRes.data.data);
       setActivityLogs(activityRes.data.data.activities || []);
       setUsers(usersRes.data.data.users || []);
+      setFeedbackLogs(feedbackRes.data.data.feedback || []);
+      setFeedbackStats(feedbackRes.data.data.stats || { total_reports: 0, top_confusions: [] });
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to load administrative analytics');
     } finally {
@@ -209,6 +215,46 @@ export default function AdminDashboard() {
     link.click();
     document.body.removeChild(link);
     toast.success('Admin audit report downloaded');
+  };
+
+  // Feedback Deletion & Export
+  const handleDeleteFeedback = async (feedbackId) => {
+    try {
+      await api.delete(`/admin/feedback/${feedbackId}`);
+      toast.success('Feedback entry dismissed');
+      fetchAdminData(true);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to delete feedback entry');
+    }
+  };
+
+  const handleExportFeedbackCSV = () => {
+    if (!feedbackLogs || feedbackLogs.length === 0) {
+      toast.error('No feedback entries available to export');
+      return;
+    }
+
+    const headers = ['Feedback ID', 'User Name', 'User Email', 'File Name', 'Model Predicted', 'User Corrected', 'Comments', 'Timestamp (GMT+6)'];
+    const rows = feedbackLogs.map(fb => [
+      `"${fb.id}"`,
+      `"${fb.full_name || 'Anonymous'}"`,
+      `"${fb.email || 'N/A'}"`,
+      `"${fb.file_name || 'N/A'}"`,
+      `"${fb.predicted_emotion || 'N/A'}"`,
+      `"${fb.corrected_emotion || 'N/A'}"`,
+      `"${(fb.comments || '').replace(/"/g, '""')}"`,
+      `"${formatDhakaTime(fb.created_at)}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `emotionsense_model_feedback_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Feedback dataset exported to CSV');
   };
 
   if (loading) {
@@ -460,7 +506,7 @@ export default function AdminDashboard() {
         </Card>
       )}
 
-      {/* Main Tabbed Management: User Management vs Live Activity Feed vs Danger Zone */}
+      {/* Main Tabbed Management */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs
           value={activeTab}
@@ -478,6 +524,7 @@ export default function AdminDashboard() {
         >
           <Tab icon={<PeopleIcon sx={{ fontSize: 20 }} />} iconPosition="start" label={`User Accounts (${users.length})`} />
           <Tab icon={<HistoryIcon sx={{ fontSize: 20 }} />} iconPosition="start" label={`Live Activity Feed (${activityLogs.length})`} />
+          <Tab icon={<FeedbackIcon sx={{ fontSize: 20 }} />} iconPosition="start" label={`Model Evaluation & Feedback (${feedbackLogs.length})`} />
           <Tab icon={<WarningIcon sx={{ fontSize: 20 }} />} iconPosition="start" label="Danger Zone & Purge" />
         </Tabs>
       </Box>
@@ -707,8 +754,172 @@ export default function AdminDashboard() {
         </Box>
       )}
 
-      {/* TAB 2: Danger Zone & Deletion Options */}
+      {/* TAB 2: Model Evaluation & Feedback Loop */}
       {activeTab === 2 && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {/* Metrics Summary Cards */}
+          <Grid container spacing={2.5}>
+            <Grid item xs={12} sm={4}>
+              <Card sx={{ p: 2.5, borderRadius: 3, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="overline" color="text.secondary" fontWeight="bold">
+                  Total Flagged Misclassifications
+                </Typography>
+                <Typography variant="h4" fontWeight="bold" color="primary.main" sx={{ mt: 0.5 }}>
+                  {feedbackStats.total_reports}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Human-in-the-loop active feedback submissions
+                </Typography>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={8}>
+              <Card sx={{ p: 2.5, borderRadius: 3, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="overline" color="text.secondary" fontWeight="bold">
+                  Top Misclassification Confusion Pairs
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 1 }}>
+                  {feedbackStats.top_confusions && feedbackStats.top_confusions.length > 0 ? (
+                    feedbackStats.top_confusions.map((c, idx) => (
+                      <Chip
+                        key={idx}
+                        icon={<CompareArrowsIcon fontSize="small" />}
+                        label={`${c.pair}: ${c.count} flags`}
+                        sx={{
+                          fontWeight: 'bold',
+                          borderRadius: 2,
+                          bgcolor: 'action.selected',
+                          border: '1px solid',
+                          borderColor: 'divider'
+                        }}
+                      />
+                    ))
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No significant confusion patterns recorded yet
+                    </Typography>
+                  )}
+                </Box>
+              </Card>
+            </Grid>
+          </Grid>
+
+          {/* Action Header */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+            <Typography variant="h6" fontWeight="bold">
+              User Submitted Ground-Truth Corrections
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<DownloadIcon />}
+              onClick={handleExportFeedbackCSV}
+              sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 'bold' }}
+            >
+              Export Feedback CSV
+            </Button>
+          </Box>
+
+          {/* Feedback Table */}
+          <TableContainer component={Paper} sx={{ borderRadius: 3, border: 1, borderColor: 'divider', boxShadow: 'none' }}>
+            <Table>
+              <TableHead sx={{ bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : '#f8fafc' }}>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700 }}>Time (GMT+6)</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>User</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>File / Session</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Model Predicted</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Actual (User)</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Notes / Context</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }} align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {feedbackLogs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 5 }}>
+                      <Typography color="text.secondary">
+                        No model misclassifications reported yet. Great AI accuracy!
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  feedbackLogs.map((fb) => {
+                    const predCfg = EMOTION_COLORS[fb.predicted_emotion?.toLowerCase()] || { bg: '#64748b', emoji: '😐', label: fb.predicted_emotion };
+                    const corrCfg = EMOTION_COLORS[fb.corrected_emotion?.toLowerCase()] || { bg: '#10b981', emoji: '✅', label: fb.corrected_emotion };
+
+                    return (
+                      <TableRow key={fb.id} hover>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="500">
+                            {formatDhakaTime(fb.created_at)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="600">
+                            {fb.full_name || 'Anonymous'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {fb.email || 'N/A'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" noWrap sx={{ maxWidth: 160 }}>
+                            {fb.file_name || 'Session'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={`${predCfg.emoji} ${predCfg.label}`}
+                            size="small"
+                            sx={{
+                              fontWeight: 700,
+                              bgcolor: `${predCfg.bg}20`,
+                              color: predCfg.bg,
+                              border: `1px solid ${predCfg.bg}40`
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={`${corrCfg.emoji} ${corrCfg.label}`}
+                            size="small"
+                            sx={{
+                              fontWeight: 700,
+                              bgcolor: `${corrCfg.bg}20`,
+                              color: corrCfg.bg,
+                              border: `1px solid ${corrCfg.bg}40`
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 220, fontStyle: fb.comments ? 'normal' : 'italic' }}>
+                            {fb.comments || 'No comment provided'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Tooltip title="Dismiss Feedback">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteFeedback(fb.id)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      )}
+
+      {/* TAB 3: Danger Zone & Deletion Options */}
+      {activeTab === 3 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <Alert severity="error" sx={{ borderRadius: 3 }}>
             <Typography variant="subtitle2" fontWeight="bold">

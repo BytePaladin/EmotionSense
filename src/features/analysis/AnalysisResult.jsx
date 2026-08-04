@@ -1,24 +1,97 @@
-import { ShowChart, AccessTime, Verified, Bolt } from '@mui/icons-material';
+import { useState, useRef } from 'react';
+import { ShowChart, AccessTime, Verified, Bolt, PictureAsPdf as PdfIcon, Flag as FlagIcon } from '@mui/icons-material';
 import EmotionPieChart from '../../components/charts/EmotionPieChart';
 import EmotionTimeline from '../../components/charts/EmotionTimeline';
 import ConfidenceTrend from '../../components/charts/ConfidenceTrend';
 import { getEmotionLabel, getEmotionColor, getEmotionEmoji } from '../../utils/emotionColors';
 import { formatFullDateTimeGMT6 } from '../../utils/dateUtils';
-import { Box, Card as MuiCard, Typography, Grid, Stack, Divider, LinearProgress } from '@mui/material';
+import { Box, Card as MuiCard, Typography, Grid, Stack, Divider, LinearProgress, Button, CircularProgress } from '@mui/material';
+import AnalysisPdfReport, { exportAnalysisToPdf } from '../../components/reports/AnalysisPdfReport';
+import FeedbackModal from '../../components/feedback/FeedbackModal';
+import toast from 'react-hot-toast';
 
 export default function AnalysisResult({ data }) {
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const pdfReportRef = useRef(null);
+
   if (!data) return null;
   const { file, detections } = data;
   const dominantColor = getEmotionColor(file.dominant_emotion);
 
+  const handleExportPdf = async () => {
+    if (!pdfReportRef.current) return;
+    setExportingPdf(true);
+    const toastId = toast.loading('Generating executive PDF report...');
+    try {
+      const fileName = `EmotionSense_${file.file_name.replace(/[^a-zA-Z0-9_-]/g, '_')}_Report.pdf`;
+      const success = await exportAnalysisToPdf(pdfReportRef.current, fileName);
+      if (success) {
+        toast.success('PDF report exported successfully!', { id: toastId });
+      } else {
+        toast.error('Failed to generate PDF report', { id: toastId });
+      }
+    } catch (err) {
+      console.error('PDF export error:', err);
+      toast.error('Error generating PDF report', { id: toastId });
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <MuiCard sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 4, alignItems: 'center', p: 3, borderLeft: '4px solid', borderLeftColor: dominantColor, borderRadius: 3 }}>
+      {/* Off-screen Printable Template for High-DPI Capture */}
+      <Box sx={{ position: 'fixed', left: '-9999px', top: '-9999px', zIndex: -100 }}>
+        <AnalysisPdfReport ref={pdfReportRef} data={data} />
+      </Box>
+
+      {/* Misclassification Feedback Dialog */}
+      <FeedbackModal
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        fileId={file.id}
+        initialPredicted={file.dominant_emotion || 'neutral'}
+      />
+
+      <MuiCard sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 4, alignItems: { xs: 'stretch', md: 'center' }, p: 3, borderLeft: '4px solid', borderLeftColor: dominantColor, borderRadius: 3 }}>
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.5, borderRadius: 4, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider', alignSelf: 'flex-start' }}>
-            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: dominantColor, animation: 'pulse 2s infinite' }} />
-            <Typography variant="caption" fontWeight="medium" color="text.secondary">Analysis Complete</Typography>
-          </Box>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.5, borderRadius: 4, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: dominantColor, animation: 'pulse 2s infinite' }} />
+              <Typography variant="caption" fontWeight="medium" color="text.secondary">Analysis Complete</Typography>
+            </Box>
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="outlined"
+                size="small"
+                color="secondary"
+                startIcon={<FlagIcon />}
+                onClick={() => setFeedbackOpen(true)}
+                sx={{ borderRadius: 2, textTransform: 'none', fontSize: '0.8125rem' }}
+              >
+                Flag Misclassification
+              </Button>
+              <Button
+                variant="contained"
+                size="small"
+                disabled={exportingPdf}
+                startIcon={exportingPdf ? <CircularProgress size={16} color="inherit" /> : <PdfIcon />}
+                onClick={handleExportPdf}
+                sx={{
+                  bgcolor: '#6366f1',
+                  '&:hover': { bgcolor: '#4f46e5' },
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontSize: '0.8125rem',
+                  fontWeight: 'bold'
+                }}
+              >
+                {exportingPdf ? 'Exporting...' : 'Export PDF'}
+              </Button>
+            </Stack>
+          </Stack>
+          
           <Typography variant="h4" fontWeight="bold">{file.file_name}</Typography>
           <Stack direction="row" flexWrap="wrap" gap={2} alignItems="center" color="text.secondary">
             <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><AccessTime fontSize="small"/> {formatFullDateTimeGMT6(file.upload_time)}</Typography>

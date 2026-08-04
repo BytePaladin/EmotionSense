@@ -218,6 +218,21 @@ def init_db():
             FOREIGN KEY (file_id) REFERENCES uploaded_files(id) ON DELETE CASCADE
         )
     ''')
+
+    db.execute('''
+        CREATE TABLE IF NOT EXISTS model_feedback (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            file_id TEXT NOT NULL,
+            frame_timestamp REAL,
+            predicted_emotion TEXT NOT NULL,
+            corrected_emotion TEXT NOT NULL,
+            comments TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (file_id) REFERENCES uploaded_files(id) ON DELETE CASCADE
+        )
+    ''')
     
     # Ensure default admin account exists
     try:
