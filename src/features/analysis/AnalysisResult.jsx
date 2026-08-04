@@ -58,40 +58,67 @@ export default function AnalysisResult({ data }) {
       {data.feedback && data.feedback.length > 0 && (
         <MuiCard
           sx={{
-            p: 2.5,
+            p: 3,
             borderRadius: 3,
             border: '1px solid',
-            borderColor: 'rgba(99, 102, 241, 0.3)',
+            borderColor: 'rgba(99, 102, 241, 0.35)',
             bgcolor: (theme) =>
-              theme.palette.mode === 'dark' ? 'rgba(99, 102, 241, 0.05)' : 'rgba(99, 102, 241, 0.03)'
+              theme.palette.mode === 'dark' ? 'rgba(99, 102, 241, 0.06)' : 'rgba(99, 102, 241, 0.03)',
+            boxShadow: '0 4px 20px -4px rgba(99, 102, 241, 0.12)'
           }}
         >
-          <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2} flexWrap="wrap" gap={1}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {/* Header */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 1.5,
+              mb: 2.5
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Box
                 sx={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 2,
+                  width: 36,
+                  height: 36,
+                  borderRadius: 2.5,
                   bgcolor: 'rgba(99, 102, 241, 0.15)',
                   color: '#6366f1',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  flexShrink: 0
                 }}
               >
                 <FlagIcon fontSize="small" />
               </Box>
-              <Typography variant="subtitle1" fontWeight="bold">
-                Ground-Truth Corrections ({data.feedback.length})
-              </Typography>
+              <Box>
+                <Typography variant="subtitle1" fontWeight="bold" sx={{ lineHeight: 1.3 }}>
+                  Ground-Truth Corrections ({data.feedback.length})
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: { xs: 'block', sm: 'none' }, mt: 0.25 }}
+                >
+                  Submitted for model performance telemetry & training
+                </Typography>
+              </Box>
             </Box>
-            <Typography variant="caption" color="text.secondary">
+
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: { xs: 'none', sm: 'block' }, fontWeight: 500 }}
+            >
               Submitted for model performance telemetry & training
             </Typography>
-          </Stack>
+          </Box>
 
-          <Stack direction="row" flexWrap="wrap" gap={1.5}>
+          {/* Feedback Items Grid */}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
             {data.feedback.map((fb, idx) => {
               const predColor = getEmotionColor(fb.predicted_emotion);
               const corrColor = getEmotionColor(fb.corrected_emotion);
@@ -100,31 +127,33 @@ export default function AnalysisResult({ data }) {
                 <Box
                   key={fb.id || idx}
                   sx={{
-                    p: 1.5,
-                    borderRadius: 2,
+                    p: 2,
+                    borderRadius: 2.5,
                     border: '1px solid',
                     borderColor: 'divider',
                     bgcolor: 'background.paper',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 1,
-                    minWidth: 220
+                    gap: 1.5,
+                    minWidth: { xs: '100%', sm: 320 },
+                    flex: { xs: '1 1 100%', sm: '0 1 auto' },
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                    <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                    <Typography variant="caption" fontWeight="bold" color="text.primary">
                       {fb.frame_timestamp !== null && fb.frame_timestamp !== undefined
                         ? `⏱️ ${Number(fb.frame_timestamp).toFixed(1)}s in session`
                         : `Entry #${idx + 1}`}
                     </Typography>
-                    <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.68rem' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem' }}>
                       {formatFullDateTimeGMT6(fb.created_at)}
                     </Typography>
                   </Box>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
                     <Chip
-                      icon={<span>{getEmotionEmoji(fb.predicted_emotion)}</span>}
+                      icon={<span style={{ fontSize: '1rem', marginLeft: 4 }}>{getEmotionEmoji(fb.predicted_emotion)}</span>}
                       label={getEmotionLabel(fb.predicted_emotion)}
                       size="small"
                       sx={{
@@ -132,14 +161,15 @@ export default function AnalysisResult({ data }) {
                         color: predColor,
                         border: `1px solid ${predColor}40`,
                         fontWeight: 600,
-                        fontSize: '0.72rem'
+                        fontSize: '0.75rem',
+                        py: 1.75
                       }}
                     />
-                    <Typography variant="body2" color="text.secondary" fontWeight="bold">
+                    <Typography variant="body2" sx={{ color: '#6366f1', fontWeight: 'bold' }}>
                       ➔
                     </Typography>
                     <Chip
-                      icon={<span>{getEmotionEmoji(fb.corrected_emotion)}</span>}
+                      icon={<span style={{ fontSize: '1rem', marginLeft: 4 }}>{getEmotionEmoji(fb.corrected_emotion)}</span>}
                       label={getEmotionLabel(fb.corrected_emotion)}
                       size="small"
                       sx={{
@@ -147,20 +177,23 @@ export default function AnalysisResult({ data }) {
                         color: corrColor,
                         border: `1.5px solid ${corrColor}`,
                         fontWeight: 700,
-                        fontSize: '0.72rem'
+                        fontSize: '0.75rem',
+                        py: 1.75
                       }}
                     />
                   </Box>
 
                   {fb.comments && (
-                    <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                      "{fb.comments}"
-                    </Typography>
+                    <Box sx={{ bgcolor: 'action.hover', p: 1.25, borderRadius: 1.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', display: 'block' }}>
+                        "{fb.comments}"
+                      </Typography>
+                    </Box>
                   )}
                 </Box>
               );
             })}
-          </Stack>
+          </Box>
         </MuiCard>
       )}
 
