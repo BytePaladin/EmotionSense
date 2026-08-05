@@ -295,25 +295,6 @@ def delete_upload(file_id: str, current_user: dict = Depends(get_current_user)):
     db.execute("DELETE FROM uploaded_files WHERE id = ?", [file_id])
     return {"success": True, "message": "Upload deleted successfully"}
 
-@app.get("/api/v1/analysis/{file_id}")
-def get_analysis(file_id: str, current_user: dict = Depends(get_current_user)):
-    db = get_db()
-    user_id = current_user["id"]
-    
-    file_res = db.execute("SELECT uf.*, es.happy_percentage, es.sad_percentage, es.angry_percentage, es.fear_percentage, es.surprised_percentage, es.disgust_percentage, es.neutral_percentage, es.dominant_emotion, es.average_confidence, es.stability_score, es.total_detections FROM uploaded_files uf LEFT JOIN emotion_statistics es ON uf.id = es.file_id WHERE uf.id = ? AND uf.user_id = ?", [file_id, user_id])
-    if len(file_res.rows) == 0:
-        raise HTTPException(status_code=404, detail="Upload not found")
-        
-    det_res = db.execute("SELECT timestamp, emotion, confidence FROM detection_results WHERE file_id = ? ORDER BY timestamp ASC", [file_id])
-    
-    fb_res = db.execute("SELECT id, frame_timestamp, predicted_emotion, corrected_emotion, comments, created_at FROM model_feedback WHERE file_id = ? AND user_id = ? ORDER BY created_at DESC", [file_id, user_id])
-    
-    file_data = dict(zip([col for col in file_res.columns], file_res.rows[0]))
-    detections = [dict(zip([col for col in det_res.columns], row)) for row in det_res.rows]
-    feedback = [dict(zip([col for col in fb_res.columns], row)) for row in fb_res.rows]
-    
-    return {"success": True, "data": {"file": file_data, "detections": detections, "feedback": feedback}}
-
 @app.get("/api/v1/analysis/compare")
 def compare_analysis(id1: str, id2: str, current_user: dict = Depends(get_current_user)):
     db = get_db()
@@ -365,6 +346,25 @@ def compare_analysis(id1: str, id2: str, current_user: dict = Depends(get_curren
             "deltas": deltas
         }
     }
+
+@app.get("/api/v1/analysis/{file_id}")
+def get_analysis(file_id: str, current_user: dict = Depends(get_current_user)):
+    db = get_db()
+    user_id = current_user["id"]
+    
+    file_res = db.execute("SELECT uf.*, es.happy_percentage, es.sad_percentage, es.angry_percentage, es.fear_percentage, es.surprised_percentage, es.disgust_percentage, es.neutral_percentage, es.dominant_emotion, es.average_confidence, es.stability_score, es.total_detections FROM uploaded_files uf LEFT JOIN emotion_statistics es ON uf.id = es.file_id WHERE uf.id = ? AND uf.user_id = ?", [file_id, user_id])
+    if len(file_res.rows) == 0:
+        raise HTTPException(status_code=404, detail="Upload not found")
+        
+    det_res = db.execute("SELECT timestamp, emotion, confidence FROM detection_results WHERE file_id = ? ORDER BY timestamp ASC", [file_id])
+    
+    fb_res = db.execute("SELECT id, frame_timestamp, predicted_emotion, corrected_emotion, comments, created_at FROM model_feedback WHERE file_id = ? AND user_id = ? ORDER BY created_at DESC", [file_id, user_id])
+    
+    file_data = dict(zip([col for col in file_res.columns], file_res.rows[0]))
+    detections = [dict(zip([col for col in det_res.columns], row)) for row in det_res.rows]
+    feedback = [dict(zip([col for col in fb_res.columns], row)) for row in fb_res.rows]
+    
+    return {"success": True, "data": {"file": file_data, "detections": detections, "feedback": feedback}}
 
 # ==========================================
 # --- ADMIN PORTAL ENDPOINTS ---

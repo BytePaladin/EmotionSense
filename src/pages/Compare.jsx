@@ -52,7 +52,9 @@ export default function Compare() {
         const compRes = await api.get(`/analysis/compare?id1=${idA}&id2=${idB}`);
         setCompareData(compRes.data.data);
       } catch (err) {
-        toast.error('Failed to load comparison data');
+        console.error('Error loading comparison data:', err);
+        const errorMsg = err.response?.data?.detail || err.response?.data?.message || 'Failed to load comparison data';
+        toast.error(errorMsg);
       } finally {
         setLoading(false);
       }
