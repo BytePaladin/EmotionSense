@@ -438,19 +438,15 @@ export default function CompareView({
               color: '#6366f1',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              flexShrink: 0
             }}
           >
             <AutoAwesome fontSize="small" />
           </Box>
-          <Box>
-            <Typography variant="subtitle1" fontWeight="bold">
-              Automated Evaluation Summary (CSE 327 SE Telemetry)
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Comparative progress analysis generated from session metrics
-            </Typography>
-          </Box>
+          <Typography variant="subtitle1" fontWeight="bold" sx={{ lineHeight: 1 }}>
+            Automated Evaluation Summary
+          </Typography>
         </Stack>
 
         <Typography variant="body2" color="text.primary" sx={{ lineHeight: 1.6 }}>
