@@ -10,15 +10,15 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const loadUser = useCallback(async () => {
-    const token = localStorage.getItem('emotionsense_token');
+    const token = sessionStorage.getItem('emotionsense_token');
     if (!token) { setLoading(false); return; }
     try {
       const res = await api.get('/profile');
       setUser(res.data.data);
       setIsAuthenticated(true);
     } catch {
-      localStorage.removeItem('emotionsense_token');
-      localStorage.removeItem('emotionsense_user');
+      sessionStorage.removeItem('emotionsense_token');
+      sessionStorage.removeItem('emotionsense_user');
       setIsAuthenticated(false);
     } finally {
       setLoading(false);
@@ -30,8 +30,8 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     const res = await api.post('/login', { email, password });
     const { token, user: userData } = res.data.data;
-    localStorage.setItem('emotionsense_token', token);
-    localStorage.setItem('emotionsense_user', JSON.stringify(userData));
+    sessionStorage.setItem('emotionsense_token', token);
+    sessionStorage.setItem('emotionsense_user', JSON.stringify(userData));
     setUser(userData);
     setIsAuthenticated(true);
     return res.data;
@@ -46,8 +46,8 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try { await api.post('/logout'); } catch {}
-    localStorage.removeItem('emotionsense_token');
-    localStorage.removeItem('emotionsense_user');
+    sessionStorage.removeItem('emotionsense_token');
+    sessionStorage.removeItem('emotionsense_user');
     setUser(null);
     setIsAuthenticated(false);
     toast.success('Logged out successfully');

@@ -15,6 +15,7 @@ import History from './pages/History';
 import Analysis from './pages/Analysis';
 import Profile from './pages/Profile';
 import LiveCamera from './pages/LiveCamera';
+import Compare from './pages/Compare';
 
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
@@ -60,6 +61,7 @@ function App() {
               <Route path="/live" element={<ProtectedRoute><LiveCamera /></ProtectedRoute>} />
               <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
               <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
+              <Route path="/compare" element={<ProtectedRoute><Compare /></ProtectedRoute>} />
               <Route path="/analysis/:id" element={<ProtectedRoute><Analysis /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               

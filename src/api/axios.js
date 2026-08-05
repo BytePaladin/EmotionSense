@@ -11,8 +11,8 @@ api.interceptors.request.use(
   (config) => {
     const isAdminRoute = window.location.pathname.startsWith('/admin') || config.url?.includes('/admin/');
     const token = isAdminRoute
-      ? (localStorage.getItem('emotionsense_admin_token') || localStorage.getItem('emotionsense_token'))
-      : localStorage.getItem('emotionsense_token');
+      ? (sessionStorage.getItem('emotionsense_admin_token') || sessionStorage.getItem('emotionsense_token'))
+      : sessionStorage.getItem('emotionsense_token');
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -27,14 +27,14 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       if (window.location.pathname.startsWith('/admin')) {
-        localStorage.removeItem('emotionsense_admin_token');
-        localStorage.removeItem('emotionsense_admin');
+        sessionStorage.removeItem('emotionsense_admin_token');
+        sessionStorage.removeItem('emotionsense_admin');
         if (window.location.pathname !== '/admin/login') {
           window.location.href = '/admin/login';
         }
       } else {
-        localStorage.removeItem('emotionsense_token');
-        localStorage.removeItem('emotionsense_user');
+        sessionStorage.removeItem('emotionsense_token');
+        sessionStorage.removeItem('emotionsense_user');
         if (window.location.pathname !== '/login') {
           window.location.href = '/login';
         }

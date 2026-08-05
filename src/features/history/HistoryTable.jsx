@@ -9,6 +9,7 @@ import {
   RecordVoiceOver as CoachIcon,
   Videocam as VideocamIcon,
   CompareArrows as ArrowRightIcon,
+  CompareArrows as CompareIcon,
   CheckCircle as CheckCircleIcon,
   Feedback as FeedbackIcon,
   Close as CloseIcon,
@@ -39,13 +40,36 @@ import {
   Button,
   Stack,
   Divider,
-  Card
+  Card,
+  Checkbox
 } from '@mui/material';
 import { formatDateGMT6, formatTimeGMT6, formatFullDateTimeGMT6 } from '../../utils/dateUtils';
 
 export default function HistoryTable({ history, loading, onDelete }) {
   const navigate = useNavigate();
   const [selectedFeedbackItem, setSelectedFeedbackItem] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((item) => item !== id);
+      }
+      if (prev.length >= 2) {
+        // Keep latest 2 selected
+        return [prev[1], id];
+      }
+      return [...prev, id];
+    });
+  };
+
+  const handleLaunchCompare = () => {
+    if (selectedIds.length === 2) {
+      navigate(`/compare?base=${selectedIds[0]}&target=${selectedIds[1]}`);
+    } else if (selectedIds.length === 1) {
+      navigate(`/compare?base=${selectedIds[0]}`);
+    }
+  };
 
   if (loading) {
     return (
@@ -78,6 +102,60 @@ export default function HistoryTable({ history, loading, onDelete }) {
 
   return (
     <>
+      {/* Floating Selection Action Bar */}
+      {selectedIds.length > 0 && (
+        <Box
+          sx={{
+            p: 1.5,
+            px: 2.5,
+            mb: 2,
+            borderRadius: 3,
+            bgcolor: 'rgba(99, 102, 241, 0.12)',
+            border: '1px solid',
+            borderColor: '#6366f150',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 1.5
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CompareIcon sx={{ color: '#6366f1' }} />
+            <Typography variant="subtitle2" fontWeight="bold" color="text.primary">
+              {selectedIds.length === 1
+                ? '1 Session Selected — Select 1 more to compare side-by-side'
+                : '2 Sessions Selected for Side-by-Side Comparison'}
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleLaunchCompare}
+              startIcon={<CompareIcon />}
+              sx={{
+                bgcolor: '#6366f1',
+                '&:hover': { bgcolor: '#4f46e5' },
+                fontWeight: 'bold',
+                textTransform: 'none',
+                borderRadius: 2
+              }}
+            >
+              Compare {selectedIds.length === 2 ? 'Sessions (2)' : 'Session'}
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setSelectedIds([])}
+              sx={{ borderRadius: 2, textTransform: 'none' }}
+            >
+              Clear
+            </Button>
+          </Stack>
+        </Box>
+      )}
+
       <TableContainer component={Paper} sx={{ borderRadius: 3, bgcolor: 'transparent', backgroundImage: 'none', boxShadow: 'none' }}>
         <Table sx={{ minWidth: 750 }}>
           <TableHead>
@@ -92,6 +170,11 @@ export default function HistoryTable({ history, loading, onDelete }) {
                 }
               }}
             >
+              <TableCell padding="checkbox">
+                <Typography variant="caption" fontWeight="bold" color="text.disabled" sx={{ pl: 1 }}>
+                  Compare
+                </Typography>
+              </TableCell>
               <TableCell>Session / Media</TableCell>
               <TableCell>Date & Time (GMT+6)</TableCell>
               <TableCell>Dominant AI Emotion</TableCell>
@@ -104,16 +187,27 @@ export default function HistoryTable({ history, loading, onDelete }) {
             {history.map((item) => {
               const hasFeedback = item.feedback && item.feedback.length > 0;
               const primaryFeedback = hasFeedback ? item.feedback[0] : null;
+              const isSelected = selectedIds.includes(item.id);
 
               return (
                 <TableRow
                   key={item.id}
+                  selected={isSelected}
                   sx={{
                     '&:hover': { bgcolor: 'action.hover' },
                     transition: 'background-color 0.2s',
                     '&:hover .actions-group': { opacity: 1 }
                   }}
                 >
+                  {/* Select Checkbox */}
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      checked={isSelected}
+                      onChange={() => toggleSelect(item.id)}
+                      size="small"
+                      sx={{ color: 'text.secondary', '&.Mui-checked': { color: '#6366f1' } }}
+                    />
+                  </TableCell>
                   {/* File / Session Title */}
                   <TableCell sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -273,6 +367,11 @@ export default function HistoryTable({ history, loading, onDelete }) {
                         gap: 1
                       }}
                     >
+                      <Tooltip title="Compare Session">
+                        <IconButton size="small" onClick={() => navigate(`/compare?base=${item.id}`)} sx={{ color: '#8b5cf6' }}>
+                          <CompareIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title="View Analysis">
                         <IconButton size="small" onClick={() => navigate(`/analysis/${item.id}`)} color="primary">
                           <Visibility fontSize="small" />

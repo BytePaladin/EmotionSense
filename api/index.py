@@ -314,6 +314,58 @@ def get_analysis(file_id: str, current_user: dict = Depends(get_current_user)):
     
     return {"success": True, "data": {"file": file_data, "detections": detections, "feedback": feedback}}
 
+@app.get("/api/v1/analysis/compare")
+def compare_analysis(id1: str, id2: str, current_user: dict = Depends(get_current_user)):
+    db = get_db()
+    user_id = current_user["id"]
+    
+    def fetch_single(fid):
+        f_res = db.execute("SELECT uf.*, es.happy_percentage, es.sad_percentage, es.angry_percentage, es.fear_percentage, es.surprised_percentage, es.disgust_percentage, es.neutral_percentage, es.dominant_emotion, es.average_confidence, es.stability_score, es.total_detections FROM uploaded_files uf LEFT JOIN emotion_statistics es ON uf.id = es.file_id WHERE uf.id = ? AND uf.user_id = ?", [fid, user_id])
+        if len(f_res.rows) == 0:
+            raise HTTPException(status_code=404, detail=f"Upload {fid} not found")
+        d_res = db.execute("SELECT timestamp, emotion, confidence FROM detection_results WHERE file_id = ? ORDER BY timestamp ASC", [fid])
+        fb_res = db.execute("SELECT id, frame_timestamp, predicted_emotion, corrected_emotion, comments, created_at FROM model_feedback WHERE file_id = ? AND user_id = ? ORDER BY created_at DESC", [fid, user_id])
+        return {
+            "file": dict(zip([col for col in f_res.columns], f_res.rows[0])),
+            "detections": [dict(zip([col for col in d_res.columns], row)) for row in d_res.rows],
+            "feedback": [dict(zip([col for col in fb_res.columns], row)) for row in fb_res.rows]
+        }
+        
+    session_a = fetch_single(id1)
+    session_b = fetch_single(id2)
+    
+    fa = session_a["file"]
+    fb = session_b["file"]
+    
+    stab_diff = round((fb.get("stability_score") or 0) - (fa.get("stability_score") or 0), 2)
+    conf_diff = round((fb.get("average_confidence") or 0) - (fa.get("average_confidence") or 0), 2)
+    
+    stress_a = (fa.get("fear_percentage") or 0) + (fa.get("angry_percentage") or 0) + (fa.get("disgust_percentage") or 0)
+    stress_b = (fb.get("fear_percentage") or 0) + (fb.get("angry_percentage") or 0) + (fb.get("disgust_percentage") or 0)
+    stress_diff = round(stress_b - stress_a, 2)
+    
+    comp_a = (fa.get("neutral_percentage") or 0) + (fa.get("happy_percentage") or 0)
+    comp_b = (fb.get("neutral_percentage") or 0) + (fb.get("happy_percentage") or 0)
+    comp_diff = round(comp_b - comp_a, 2)
+    
+    deltas = {
+        "stability_score_diff": stab_diff,
+        "average_confidence_diff": conf_diff,
+        "stress_diff": stress_diff,
+        "composure_diff": comp_diff,
+        "dominant_emotion_a": fa.get("dominant_emotion"),
+        "dominant_emotion_b": fb.get("dominant_emotion")
+    }
+    
+    return {
+        "success": True,
+        "data": {
+            "session_a": session_a,
+            "session_b": session_b,
+            "deltas": deltas
+        }
+    }
+
 # ==========================================
 # --- ADMIN PORTAL ENDPOINTS ---
 # ==========================================

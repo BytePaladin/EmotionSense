@@ -19,7 +19,8 @@ import {
   Person as PersonIcon,
   Close as CloseIcon,
   Psychology as BrainIcon,
-  Videocam as VideocamIcon
+  Videocam as VideocamIcon,
+  CompareArrows as CompareArrowsIcon
 } from '@mui/icons-material';
 
 import { useAuth } from '../../hooks/useAuth';
@@ -30,6 +31,7 @@ const navItems = [
   { to: '/live', label: 'Live Camera', icon: VideocamIcon },
   { to: '/upload', label: 'Upload', icon: UploadIcon },
   { to: '/history', label: 'History', icon: HistoryIcon },
+  { to: '/compare', label: 'Compare', icon: CompareArrowsIcon },
   { to: '/profile', label: 'Profile', icon: PersonIcon }
 ];
 
