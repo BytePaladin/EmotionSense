@@ -8,8 +8,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Path to custom trained ONNX model in api/models/
-LOCAL_MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "mobilenetv2_emotion.onnx")
+def find_local_model_path():
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "models", "mobilenetv2_emotion.onnx"),
+        os.path.join(os.getcwd(), "api", "models", "mobilenetv2_emotion.onnx"),
+        os.path.join(os.getcwd(), "models", "mobilenetv2_emotion.onnx"),
+        "/var/task/api/models/mobilenetv2_emotion.onnx"
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return candidates[0]
+
+LOCAL_MODEL_PATH = find_local_model_path()
 EMOTIONS = ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprised']
 
 HF_API_TOKEN = os.getenv("HF_API_TOKEN")
@@ -21,13 +32,14 @@ _mp_face_detector = None
 def get_onnx_session():
     """Lazy-load local ONNX Runtime Session."""
     global _onnx_session
-    if _onnx_session is None and os.path.exists(LOCAL_MODEL_PATH):
+    model_path = find_local_model_path()
+    if _onnx_session is None and os.path.exists(model_path):
         try:
             import onnxruntime
-            _onnx_session = onnxruntime.InferenceSession(LOCAL_MODEL_PATH)
-            print(f"[INFO] Loaded local custom MobileNetV2 ONNX model from {LOCAL_MODEL_PATH}")
+            _onnx_session = onnxruntime.InferenceSession(model_path)
+            print(f"[INFO] Loaded local custom MobileNetV2 ONNX model from {model_path}")
         except Exception as e:
-            print(f"[WARNING] Failed to load local ONNX model: {e}")
+            print(f"[WARNING] Failed to load local ONNX model from {model_path}: {e}")
     return _onnx_session
 
 def get_mediapipe_detector():
