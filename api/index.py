@@ -143,13 +143,12 @@ def update_profile(data: UpdateProfile, current_user: dict = Depends(get_current
         
     return get_profile(current_user)
 
-# --- Upload & Inference Routes ---
 @app.post("/api/v1/mock-inference")
 async def analyze_file(file: UploadFile = File(...)):
     # Read file bytes
     file_bytes = await file.read()
     
-    # Send to Hugging Face
+    # Send to Local ONNX Engine / Hugging Face Inference
     try:
         hf_result = analyze_image(file_bytes, content_type=file.content_type or "image/jpeg")
         detections = process_detections(hf_result)
@@ -157,6 +156,16 @@ async def analyze_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
         
     return {"success": True, "data": {"detections": detections}}
+
+@app.post("/api/v1/frame-inference")
+async def analyze_frame(file: UploadFile = File(...)):
+    file_bytes = await file.read()
+    try:
+        hf_result = analyze_image(file_bytes, content_type="image/jpeg")
+        detections = process_detections(hf_result)
+        return {"success": True, "data": {"detections": detections}}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 class FileMetadata(BaseModel):
     file_name: str

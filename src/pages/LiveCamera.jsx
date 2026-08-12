@@ -156,56 +156,118 @@ export default function LiveCamera() {
     }
   };
 
+  const isProcessingFrameRef = useRef(false);
+
   const startDetectionLoop = (video, canvas, startTime) => {
     const displaySize = { width: video.videoWidth || 640, height: video.videoHeight || 480 };
-    faceapi.matchDimensions(canvas, displaySize);
+    canvas.width = displaySize.width;
+    canvas.height = displaySize.height;
+
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = displaySize.width;
+    tempCanvas.height = displaySize.height;
 
     detectionIntervalRef.current = setInterval(async () => {
-      if (!video || video.paused || video.ended) return;
+      if (!video || video.paused || video.ended || isProcessingFrameRef.current) return;
+      isProcessingFrameRef.current = true;
 
       try {
-        const result = await faceapi
-          .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
-          .withFaceExpressions();
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(video, 0, 0, displaySize.width, displaySize.height);
 
-        if (result && result.expressions) {
-          const resizedResult = faceapi.resizeResults(result, displaySize);
-          const ctx = canvas.getContext('2d');
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          faceapi.draw.drawDetections(canvas, resizedResult);
-
-          const expressions = result.expressions;
-          const rawDominant = Object.keys(expressions).reduce((a, b) =>
-            expressions[a] > expressions[b] ? a : b
-          );
-          const mappedEmotion = EMOTION_MAP[rawDominant] || 'neutral';
-
-          const timestamp = Number(((Date.now() - startTime) / 1000.0).toFixed(2));
-          const confidence = Number(expressions[rawDominant].toFixed(2));
-
-          setCurrentLiveEmotion(mappedEmotion);
-          setCurrentLiveConfidence(confidence);
-
-          const newDetection = { timestamp, emotion: mappedEmotion, confidence };
-          if (detectionsRef.current.length < 500) {
-            detectionsRef.current.push(newDetection);
-            setDetectionCount(detectionsRef.current.length);
-            if (isCoachMode && detectionsRef.current.length % 3 === 0) {
-              evaluateCoachFeedback(detectionsRef.current);
-            }
+        tempCanvas.toBlob(async (blob) => {
+          if (!blob) {
+            isProcessingFrameRef.current = false;
+            return;
           }
 
-          const label = `${mappedEmotion} (${Math.round(confidence * 100)}%)`;
-          const drawBox = new faceapi.draw.DrawBox(resizedResult.detection.box, { label });
-          drawBox.draw(canvas);
-        } else {
-          const ctx = canvas.getContext('2d');
-          if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
+          const formData = new FormData();
+          formData.append('file', blob, 'frame.jpg');
+
+          try {
+            const res = await api.post('/api/v1/frame-inference', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (res.data?.success && res.data?.data?.detections?.length > 0) {
+              const detections = res.data.data.detections;
+              const topDet = detections[0];
+              const mappedEmotion = topDet.emotion || 'neutral';
+              const confidence = topDet.confidence || 0.9;
+              const timestamp = Number(((Date.now() - startTime) / 1000.0).toFixed(2));
+
+              setCurrentLiveEmotion(mappedEmotion);
+              setCurrentLiveConfidence(confidence);
+
+              const newDetection = { timestamp, emotion: mappedEmotion, confidence };
+              if (detectionsRef.current.length < 500) {
+                detectionsRef.current.push(newDetection);
+                setDetectionCount(detectionsRef.current.length);
+                if (isCoachMode && detectionsRef.current.length % 3 === 0) {
+                  evaluateCoachFeedback(detectionsRef.current);
+                }
+              }
+
+              // Draw multi-face bounding boxes and labels onto live canvas
+              detections.forEach((det) => {
+                const box = det.box || { x: 50, y: 50, w: displaySize.width - 100, h: displaySize.height - 100 };
+                ctx.strokeStyle = '#00E676';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(box.x, box.y, box.w, box.h);
+
+                ctx.fillStyle = '#00E676';
+                ctx.font = 'bold 16px Roboto, sans-serif';
+                const label = `${det.emotion.toUpperCase()} (${Math.round((det.confidence || 0.9) * 100)}%)`;
+                ctx.fillText(label, box.x, Math.max(box.y - 10, 20));
+              });
+            }
+          } catch (apiErr) {
+            // Fallback to client-side faceapi detection if backend is unreachable
+            const result = await faceapi
+              .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
+              .withFaceExpressions();
+
+            if (result && result.expressions) {
+              const resizedResult = faceapi.resizeResults(result, displaySize);
+              const ctx = canvas.getContext('2d');
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+              const expressions = result.expressions;
+              const rawDominant = Object.keys(expressions).reduce((a, b) =>
+                expressions[a] > expressions[b] ? a : b
+              );
+              const mappedEmotion = EMOTION_MAP[rawDominant] || 'neutral';
+              const timestamp = Number(((Date.now() - startTime) / 1000.0).toFixed(2));
+              const confidence = Number(expressions[rawDominant].toFixed(2));
+
+              setCurrentLiveEmotion(mappedEmotion);
+              setCurrentLiveConfidence(confidence);
+
+              const newDetection = { timestamp, emotion: mappedEmotion, confidence };
+              if (detectionsRef.current.length < 500) {
+                detectionsRef.current.push(newDetection);
+                setDetectionCount(detectionsRef.current.length);
+                if (isCoachMode && detectionsRef.current.length % 3 === 0) {
+                  evaluateCoachFeedback(detectionsRef.current);
+                }
+              }
+
+              const label = `${mappedEmotion} (${Math.round(confidence * 100)}%)`;
+              const drawBox = new faceapi.draw.DrawBox(resizedResult.detection.box, { label });
+              drawBox.draw(canvas);
+            }
+          } finally {
+            isProcessingFrameRef.current = false;
+          }
+        }, 'image/jpeg', 0.85);
       } catch (err) {
         console.error('Detection iteration error:', err);
+        isProcessingFrameRef.current = false;
       }
-    }, 500);
+    }, 600);
   };
 
   const handleOverrideEmotion = (targetEmotion) => {
