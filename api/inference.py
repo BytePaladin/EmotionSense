@@ -1,31 +1,146 @@
 import os
+import io
+import time
 import requests
+import numpy as np
+from PIL import Image
 from dotenv import load_dotenv
 
 load_dotenv()
 
-HF_API_TOKEN = os.getenv("HF_API_TOKEN")
+# Path to custom trained ONNX model in api/models/
+LOCAL_MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "mobilenetv2_emotion.onnx")
+EMOTIONS = ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprised']
 
-# We use an emotion detection model from HuggingFace
-# Note: For images, a common model is 'dima806/facial_emotions_image_detection'
+HF_API_TOKEN = os.getenv("HF_API_TOKEN")
 API_URL = "https://router.huggingface.co/hf-inference/models/dima806/facial_emotions_image_detection"
 
+_onnx_session = None
+_mp_face_detector = None
+
+def get_onnx_session():
+    """Lazy-load local ONNX Runtime Session."""
+    global _onnx_session
+    if _onnx_session is None and os.path.exists(LOCAL_MODEL_PATH):
+        try:
+            import onnxruntime
+            _onnx_session = onnxruntime.InferenceSession(LOCAL_MODEL_PATH)
+            print(f"✅ Loaded local custom MobileNetV2 ONNX model from {LOCAL_MODEL_PATH}")
+        except Exception as e:
+            print(f"⚠️ Notice loading local ONNX model ({e})")
+    return _onnx_session
+
+def get_mediapipe_detector():
+    """Lazy-load MediaPipe Face Detector."""
+    global _mp_face_detector
+    if _mp_face_detector is None:
+        try:
+            import mediapipe as mp
+            mp_face_detection = mp.solutions.face_detection
+            _mp_face_detector = mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
+        except Exception as e:
+            print(f"⚠️ MediaPipe detector notice ({e})")
+    return _mp_face_detector
+
+def preprocess_face_pil(pil_img, image_size=224):
+    """Preprocess cropped PIL face image for MobileNetV2 ImageNet normalization."""
+    pil_img = pil_img.convert("RGB").resize((image_size, image_size))
+    img_np = np.array(pil_img, dtype=np.float32) / 255.0
+    
+    # ImageNet mean & std
+    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+    std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+    img_np = (img_np - mean) / std
+    
+    # Convert HWC to CHW and add batch dimension
+    img_np = np.transpose(img_np, (2, 0, 1))
+    img_np = np.expand_dims(img_np, axis=0)
+    return img_np
+
+def run_local_onnx_inference(image_bytes: bytes):
+    """Runs local MediaPipe multi-face cropping + MobileNetV2 ONNX emotion inference."""
+    session = get_onnx_session()
+    if session is None:
+        return None
+        
+    pil_image = Image.open(io.BytesIO(image_bytes))
+    image_np = np.array(pil_image.convert("RGB"))
+    h, w, _ = image_np.shape
+    
+    detector = get_mediapipe_detector()
+    face_boxes = []
+    
+    if detector:
+        results = detector.process(image_np)
+        if results.detections:
+            for detection in results.detections:
+                bboxC = detection.location_data.relative_bounding_box
+                x = int(bboxC.xmin * w)
+                y = int(bboxC.ymin * h)
+                bw = int(bboxC.width * w)
+                bh = int(bboxC.height * h)
+                
+                x = max(0, x)
+                y = max(0, y)
+                bw = min(bw, w - x)
+                bh = min(bh, h - y)
+                
+                if bw > 10 and bh > 10:
+                    face_boxes.append((x, y, bw, bh))
+                    
+    # Fallback to entire image if no specific face box detected
+    if not face_boxes:
+        face_boxes.append((0, 0, w, h))
+        
+    detections = []
+    face_crops = []
+    
+    for (x, y, bw, bh) in face_boxes:
+        crop_pil = pil_image.crop((x, y, x + bw, y + bh))
+        crop_tensor = preprocess_face_pil(crop_pil)
+        face_crops.append(crop_tensor)
+        
+    batch_tensors = np.vstack(face_crops)
+    input_name = session.get_inputs()[0].name
+    logits = session.run(None, {input_name: batch_tensors.astype(np.float32)})[0]
+    probs = np.exp(logits) / np.sum(np.exp(logits), axis=1, keepdims=True)
+    
+    for idx, (x, y, bw, bh) in enumerate(face_boxes):
+        top_idx = int(np.argmax(probs[idx]))
+        emotion = EMOTIONS[top_idx]
+        confidence = float(probs[idx][top_idx])
+        
+        detections.append({
+            "timestamp": 0.0,
+            "emotion": emotion,
+            "confidence": round(confidence, 4),
+            "face_id": idx + 1,
+            "box": {"x": x, "y": y, "w": bw, "h": bh}
+        })
+        
+    return detections
+
 def analyze_image(file_bytes: bytes, content_type: str = "image/jpeg"):
+    """
+    Main inference entrypoint.
+    Prioritizes local MobileNetV2 ONNX multi-face engine; falls back to Hugging Face API if model file is missing.
+    """
+    local_results = run_local_onnx_inference(file_bytes)
+    if local_results is not None:
+        return {"success": True, "source": "local_mobilenetv2_onnx", "data": {"detections": local_results}}
+        
     if not HF_API_TOKEN:
-        raise ValueError("HF_API_TOKEN environment variable is missing.")
+        raise ValueError("HF_API_TOKEN environment variable is missing and local ONNX model is not present.")
         
     headers = {
         "Authorization": f"Bearer {HF_API_TOKEN}",
         "Content-Type": content_type
     }
     
-    # Retry mechanism in case model is loading
-    import time
     for _ in range(3):
         response = requests.post(API_URL, headers=headers, data=file_bytes)
         result = response.json()
         
-        # If the model is currently loading, wait and retry
         if isinstance(result, dict) and "estimated_time" in result:
             wait_time = result.get("estimated_time", 20)
             time.sleep(min(wait_time, 5))
@@ -36,13 +151,14 @@ def analyze_image(file_bytes: bytes, content_type: str = "image/jpeg"):
     return response.json()
 
 def process_detections(hf_result):
-    # HF usually returns a list of dictionaries with 'label' and 'score'
-    # Or an error dict
+    """Processes HF results or formats local ONNX multi-face predictions."""
+    if isinstance(hf_result, dict) and "data" in hf_result and "detections" in hf_result["data"]:
+        return hf_result["data"]["detections"]
+        
     if isinstance(hf_result, dict) and "error" in hf_result:
         raise Exception(f"Hugging Face API Error: {hf_result['error']}")
         
     detections = []
-    # If it's a list of lists, take the first one
     if isinstance(hf_result, list) and len(hf_result) > 0 and isinstance(hf_result[0], list):
         predictions = hf_result[0]
     elif isinstance(hf_result, list):
@@ -50,7 +166,6 @@ def process_detections(hf_result):
     else:
         predictions = []
 
-    # Map labels to our standard emotions (happy, sad, angry, fear, disgust, surprised, neutral)
     label_map = {
         'happy': 'happy',
         'sad': 'sad',
@@ -62,16 +177,11 @@ def process_detections(hf_result):
         'neutral': 'neutral'
     }
 
-    # Since it's a single image, we simulate a timestamp of 0.0
-    # We only want to save the dominant emotion (highest score) as the detection
     if predictions:
-        # Sort predictions by score descending
         predictions.sort(key=lambda x: x.get('score', 0.0), reverse=True)
         top_pred = predictions[0]
-        
         raw_label = str(top_pred.get('label', 'neutral')).lower()
         score = top_pred.get('score', 0.0)
-        
         emotion = label_map.get(raw_label, 'neutral')
         
         detections.append({
@@ -80,7 +190,6 @@ def process_detections(hf_result):
             "confidence": round(score, 2)
         })
         
-    # If no predictions, fallback to neutral
     if not detections:
         detections.append({
             "timestamp": 0.0,

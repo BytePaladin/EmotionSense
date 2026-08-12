@@ -366,6 +366,28 @@ def get_analysis(file_id: str, current_user: dict = Depends(get_current_user)):
     
     return {"success": True, "data": {"file": file_data, "detections": detections, "feedback": feedback}}
 
+@app.get("/api/v1/analysis/{file_id}/export/csv")
+def export_analysis_csv(file_id: str, current_user: dict = Depends(get_current_user)):
+    from fastapi.responses import Response
+    db = get_db()
+    user_id = current_user["id"]
+    
+    file_res = db.execute("SELECT file_name, upload_time FROM uploaded_files WHERE id = ? AND user_id = ?", [file_id, user_id])
+    if len(file_res.rows) == 0:
+        raise HTTPException(status_code=404, detail="Upload session not found")
+        
+    det_res = db.execute("SELECT timestamp, emotion, confidence FROM detection_results WHERE file_id = ? ORDER BY timestamp ASC", [file_id])
+    
+    csv_lines = ["Timestamp (s),Emotion,Confidence"]
+    for row in det_res.rows:
+        csv_lines.append(f"{row.timestamp},{row.emotion},{row.confidence}")
+        
+    csv_content = "\n".join(csv_lines)
+    headers = {
+        "Content-Disposition": f'attachment; filename="emotionsense_{file_id[:8]}.csv"'
+    }
+    return Response(content=csv_content, media_type="text/csv", headers=headers)
+
 # ==========================================
 # --- ADMIN PORTAL ENDPOINTS ---
 # ==========================================
