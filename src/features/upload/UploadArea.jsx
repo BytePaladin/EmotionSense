@@ -52,7 +52,7 @@ export default function UploadArea() {
     let simInterval = setInterval(() => { setProgress(p => p < 90 ? p + 5 : p); }, 200);
 
     try {
-      const mockRes = await api.post('/mock-inference', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const mockRes = await api.post('/mock-inference', formData);
       const detections = mockRes.data.data.detections;
       
       const saveRes = await api.post('/upload-result', {

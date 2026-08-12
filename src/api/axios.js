@@ -9,6 +9,9 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
     const isAdminRoute = window.location.pathname.startsWith('/admin') || config.url?.includes('/admin/');
     const token = isAdminRoute
       ? (sessionStorage.getItem('emotionsense_admin_token') || sessionStorage.getItem('emotionsense_token'))

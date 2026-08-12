@@ -185,9 +185,7 @@ export default function LiveCamera() {
           formData.append('file', blob, 'frame.jpg');
 
           try {
-            const res = await api.post('/frame-inference', formData, {
-              headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            const res = await api.post('/frame-inference', formData);
 
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
