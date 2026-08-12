@@ -185,7 +185,7 @@ export default function LiveCamera() {
           formData.append('file', blob, 'frame.jpg');
 
           try {
-            const res = await api.post('/api/v1/frame-inference', formData, {
+            const res = await api.post('/frame-inference', formData, {
               headers: { 'Content-Type': 'multipart/form-data' }
             });
 
