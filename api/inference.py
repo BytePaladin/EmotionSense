@@ -25,9 +25,9 @@ def get_onnx_session():
         try:
             import onnxruntime
             _onnx_session = onnxruntime.InferenceSession(LOCAL_MODEL_PATH)
-            print(f"✅ Loaded local custom MobileNetV2 ONNX model from {LOCAL_MODEL_PATH}")
+            print(f"[INFO] Loaded local custom MobileNetV2 ONNX model from {LOCAL_MODEL_PATH}")
         except Exception as e:
-            print(f"⚠️ Notice loading local ONNX model ({e})")
+            print(f"[WARNING] Failed to load local ONNX model: {e}")
     return _onnx_session
 
 def get_mediapipe_detector():
@@ -38,8 +38,9 @@ def get_mediapipe_detector():
             import mediapipe as mp
             mp_face_detection = mp.solutions.face_detection
             _mp_face_detector = mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
+            print("[INFO] Initialized MediaPipe Multi-Face Detector")
         except Exception as e:
-            print(f"⚠️ MediaPipe detector notice ({e})")
+            print(f"[WARNING] MediaPipe detector notice: {e}")
     return _mp_face_detector
 
 def preprocess_face_pil(pil_img, image_size=224):
@@ -59,66 +60,72 @@ def preprocess_face_pil(pil_img, image_size=224):
 
 def run_local_onnx_inference(image_bytes: bytes):
     """Runs local MediaPipe multi-face cropping + MobileNetV2 ONNX emotion inference."""
-    session = get_onnx_session()
-    if session is None:
+    try:
+        session = get_onnx_session()
+        if session is None:
+            return None
+            
+        pil_image = Image.open(io.BytesIO(image_bytes))
+        image_np = np.array(pil_image.convert("RGB"))
+        h, w, _ = image_np.shape
+        
+        face_boxes = []
+        try:
+            detector = get_mediapipe_detector()
+            if detector:
+                results = detector.process(image_np)
+                if results.detections:
+                    for detection in results.detections:
+                        bboxC = detection.location_data.relative_bounding_box
+                        x = int(bboxC.xmin * w)
+                        y = int(bboxC.ymin * h)
+                        bw = int(bboxC.width * w)
+                        bh = int(bboxC.height * h)
+                        
+                        x = max(0, x)
+                        y = max(0, y)
+                        bw = min(bw, w - x)
+                        bh = min(bh, h - y)
+                        
+                        if bw > 10 and bh > 10:
+                            face_boxes.append((x, y, bw, bh))
+        except Exception as mp_err:
+            print(f"[WARNING] MediaPipe frame detection exception: {mp_err}")
+            
+        # Fallback to entire image if no face box detected
+        if not face_boxes:
+            face_boxes.append((0, 0, w, h))
+            
+        detections = []
+        face_crops = []
+        
+        for (x, y, bw, bh) in face_boxes:
+            crop_pil = pil_image.crop((x, y, x + bw, y + bh))
+            crop_tensor = preprocess_face_pil(crop_pil)
+            face_crops.append(crop_tensor)
+            
+        batch_tensors = np.vstack(face_crops)
+        input_name = session.get_inputs()[0].name
+        logits = session.run(None, {input_name: batch_tensors.astype(np.float32)})[0]
+        probs = np.exp(logits) / np.sum(np.exp(logits), axis=1, keepdims=True)
+        
+        for idx, (x, y, bw, bh) in enumerate(face_boxes):
+            top_idx = int(np.argmax(probs[idx]))
+            emotion = EMOTIONS[top_idx]
+            confidence = float(probs[idx][top_idx])
+            
+            detections.append({
+                "timestamp": 0.0,
+                "emotion": emotion,
+                "confidence": round(confidence, 4),
+                "face_id": idx + 1,
+                "box": {"x": x, "y": y, "w": bw, "h": bh}
+            })
+            
+        return detections
+    except Exception as e:
+        print(f"[WARNING] ONNX inference exception: {e}")
         return None
-        
-    pil_image = Image.open(io.BytesIO(image_bytes))
-    image_np = np.array(pil_image.convert("RGB"))
-    h, w, _ = image_np.shape
-    
-    detector = get_mediapipe_detector()
-    face_boxes = []
-    
-    if detector:
-        results = detector.process(image_np)
-        if results.detections:
-            for detection in results.detections:
-                bboxC = detection.location_data.relative_bounding_box
-                x = int(bboxC.xmin * w)
-                y = int(bboxC.ymin * h)
-                bw = int(bboxC.width * w)
-                bh = int(bboxC.height * h)
-                
-                x = max(0, x)
-                y = max(0, y)
-                bw = min(bw, w - x)
-                bh = min(bh, h - y)
-                
-                if bw > 10 and bh > 10:
-                    face_boxes.append((x, y, bw, bh))
-                    
-    # Fallback to entire image if no specific face box detected
-    if not face_boxes:
-        face_boxes.append((0, 0, w, h))
-        
-    detections = []
-    face_crops = []
-    
-    for (x, y, bw, bh) in face_boxes:
-        crop_pil = pil_image.crop((x, y, x + bw, y + bh))
-        crop_tensor = preprocess_face_pil(crop_pil)
-        face_crops.append(crop_tensor)
-        
-    batch_tensors = np.vstack(face_crops)
-    input_name = session.get_inputs()[0].name
-    logits = session.run(None, {input_name: batch_tensors.astype(np.float32)})[0]
-    probs = np.exp(logits) / np.sum(np.exp(logits), axis=1, keepdims=True)
-    
-    for idx, (x, y, bw, bh) in enumerate(face_boxes):
-        top_idx = int(np.argmax(probs[idx]))
-        emotion = EMOTIONS[top_idx]
-        confidence = float(probs[idx][top_idx])
-        
-        detections.append({
-            "timestamp": 0.0,
-            "emotion": emotion,
-            "confidence": round(confidence, 4),
-            "face_id": idx + 1,
-            "box": {"x": x, "y": y, "w": bw, "h": bh}
-        })
-        
-    return detections
 
 def analyze_image(file_bytes: bytes, content_type: str = "image/jpeg"):
     """
