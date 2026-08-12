@@ -223,6 +223,7 @@ export default function LiveCamera() {
               });
             }
           } catch (apiErr) {
+            console.error('[LiveCamera Backend API Exception]:', apiErr);
             // Fallback to client-side faceapi detection if backend is unreachable
             const result = await faceapi
               .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
