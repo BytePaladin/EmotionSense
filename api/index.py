@@ -207,8 +207,8 @@ def save_upload_result(payload: UploadResultPayload, current_user: dict = Depend
     for d in detections:
         det_id = str(uuid.uuid4())
         stmts.append((
-            "INSERT INTO detection_results (id, file_id, timestamp, emotion, confidence) VALUES (?, ?, ?, ?, ?)",
-            [det_id, file_id, d["timestamp"], d["emotion"].lower(), d["confidence"]]
+            "INSERT INTO detection_results (id, file_id, timestamp, emotion, confidence, face_id, box_x, box_y, box_w, box_h) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [det_id, file_id, d["timestamp"], d["emotion"].lower(), d["confidence"], d.get("face_id"), d.get("box_x"), d.get("box_y"), d.get("box_w"), d.get("box_h")]
         ))
         
     stats = calculate_emotion_stats(detections)
@@ -326,7 +326,7 @@ def compare_analysis(id1: str, id2: str, current_user: dict = Depends(get_curren
         f_res = db.execute("SELECT uf.*, es.happy_percentage, es.sad_percentage, es.angry_percentage, es.fear_percentage, es.surprised_percentage, es.disgust_percentage, es.neutral_percentage, es.dominant_emotion, es.average_confidence, es.stability_score, es.total_detections FROM uploaded_files uf LEFT JOIN emotion_statistics es ON uf.id = es.file_id WHERE uf.id = ? AND uf.user_id = ?", [fid, user_id])
         if len(f_res.rows) == 0:
             raise HTTPException(status_code=404, detail=f"Upload {fid} not found")
-        d_res = db.execute("SELECT timestamp, emotion, confidence FROM detection_results WHERE file_id = ? ORDER BY timestamp ASC", [fid])
+        d_res = db.execute("SELECT timestamp, emotion, confidence, face_id, box_x, box_y, box_w, box_h FROM detection_results WHERE file_id = ? ORDER BY timestamp ASC", [fid])
         fb_res = db.execute("SELECT id, frame_timestamp, predicted_emotion, corrected_emotion, comments, created_at FROM model_feedback WHERE file_id = ? AND user_id = ? ORDER BY created_at DESC", [fid, user_id])
         return {
             "file": dict(zip([col for col in f_res.columns], f_res.rows[0])),
@@ -378,7 +378,7 @@ def get_analysis(file_id: str, current_user: dict = Depends(get_current_user)):
     if len(file_res.rows) == 0:
         raise HTTPException(status_code=404, detail="Upload not found")
         
-    det_res = db.execute("SELECT timestamp, emotion, confidence FROM detection_results WHERE file_id = ? ORDER BY timestamp ASC", [file_id])
+    det_res = db.execute("SELECT timestamp, emotion, confidence, face_id, box_x, box_y, box_w, box_h FROM detection_results WHERE file_id = ? ORDER BY timestamp ASC", [file_id])
     
     fb_res = db.execute("SELECT id, frame_timestamp, predicted_emotion, corrected_emotion, comments, created_at FROM model_feedback WHERE file_id = ? AND user_id = ? ORDER BY created_at DESC", [file_id, user_id])
     
@@ -398,11 +398,11 @@ def export_analysis_csv(file_id: str, current_user: dict = Depends(get_current_u
     if len(file_res.rows) == 0:
         raise HTTPException(status_code=404, detail="Upload session not found")
         
-    det_res = db.execute("SELECT timestamp, emotion, confidence FROM detection_results WHERE file_id = ? ORDER BY timestamp ASC", [file_id])
+    det_res = db.execute("SELECT timestamp, emotion, confidence, face_id, box_x, box_y, box_w, box_h FROM detection_results WHERE file_id = ? ORDER BY timestamp ASC", [file_id])
     
-    csv_lines = ["Timestamp (s),Emotion,Confidence"]
+    csv_lines = ["Timestamp (s),Emotion,Confidence,FaceID,BoxX,BoxY,BoxW,BoxH"]
     for row in det_res.rows:
-        csv_lines.append(f"{row.timestamp},{row.emotion},{row.confidence}")
+        csv_lines.append(f"{row.timestamp},{row.emotion},{row.confidence},{row.face_id},{row.box_x},{row.box_y},{row.box_w},{row.box_h}")
         
     csv_content = "\n".join(csv_lines)
     headers = {

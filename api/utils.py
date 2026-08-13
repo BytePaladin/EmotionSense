@@ -34,13 +34,35 @@ def calculate_dominant_emotion(counts, confidence_sums):
 def calculate_stability_score(detections):
     if len(detections) <= 1:
         return 100.0
-    sorted_det = sorted(detections, key=lambda x: x['timestamp'])
-    changes = 0
-    for i in range(1, len(sorted_det)):
-        if sorted_det[i]['emotion'].lower() != sorted_det[i - 1]['emotion'].lower():
-            changes += 1
-    score = (1 - (changes / len(sorted_det))) * 100
-    return round(score, 2)
+    
+    face_groups = {}
+    for d in detections:
+        fid = d.get('face_id') or 1
+        if fid not in face_groups:
+            face_groups[fid] = []
+        face_groups[fid].append(d)
+        
+    total_score = 0
+    valid_faces = 0
+    
+    for fid, group_det in face_groups.items():
+        if len(group_det) <= 1:
+            total_score += 100.0
+            valid_faces += 1
+            continue
+            
+        sorted_det = sorted(group_det, key=lambda x: x['timestamp'])
+        changes = 0
+        for i in range(1, len(sorted_det)):
+            if sorted_det[i]['emotion'].lower() != sorted_det[i - 1]['emotion'].lower():
+                changes += 1
+                
+        score = (1 - (changes / len(sorted_det))) * 100
+        total_score += score
+        valid_faces += 1
+        
+    final_score = total_score / valid_faces if valid_faces > 0 else 100.0
+    return round(final_score, 2)
 
 def calculate_emotion_stats(detections):
     if not detections or len(detections) == 0:

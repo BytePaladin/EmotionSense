@@ -200,12 +200,23 @@ export default function LiveCamera() {
               setCurrentLiveEmotion(mappedEmotion);
               setCurrentLiveConfidence(confidence);
 
-              const newDetection = { timestamp, emotion: mappedEmotion, confidence };
-              if (detectionsRef.current.length < 500) {
-                detectionsRef.current.push(newDetection);
+              if (detectionsRef.current.length < 500 * detections.length) {
+                detections.forEach(det => {
+                  detectionsRef.current.push({
+                    timestamp,
+                    emotion: det.emotion || 'neutral',
+                    confidence: det.confidence || 0.9,
+                    face_id: det.face_id || 1,
+                    box_x: det.box?.x,
+                    box_y: det.box?.y,
+                    box_w: det.box?.w,
+                    box_h: det.box?.h
+                  });
+                });
                 setDetectionCount(detectionsRef.current.length);
-                if (isCoachMode && detectionsRef.current.length % 3 === 0) {
-                  evaluateCoachFeedback(detectionsRef.current);
+                if (isCoachMode && Math.floor(detectionsRef.current.length / detections.length) % 3 === 0) {
+                  const primaryDetections = detectionsRef.current.filter(d => (d.face_id || 1) === 1);
+                  evaluateCoachFeedback(primaryDetections);
                 }
               }
 
@@ -245,12 +256,13 @@ export default function LiveCamera() {
               setCurrentLiveEmotion(mappedEmotion);
               setCurrentLiveConfidence(confidence);
 
-              const newDetection = { timestamp, emotion: mappedEmotion, confidence };
+              const newDetection = { timestamp, emotion: mappedEmotion, confidence, face_id: 1 };
               if (detectionsRef.current.length < 500) {
                 detectionsRef.current.push(newDetection);
                 setDetectionCount(detectionsRef.current.length);
                 if (isCoachMode && detectionsRef.current.length % 3 === 0) {
-                  evaluateCoachFeedback(detectionsRef.current);
+                  const primaryDetections = detectionsRef.current.filter(d => (d.face_id || 1) === 1);
+                  evaluateCoachFeedback(primaryDetections);
                 }
               }
 
@@ -368,11 +380,12 @@ export default function LiveCamera() {
     // Compute Coach Metrics if in Coach Mode
     let coachDataToSave = null;
     if (isCoachMode) {
-      const total = capturedDetections.length;
-      const happy = capturedDetections.filter((d) => d.emotion === 'happy').length;
-      const neutral = capturedDetections.filter((d) => d.emotion === 'neutral').length;
-      const tension = capturedDetections.filter((d) => ['angry', 'fear', 'disgust', 'sad'].includes(d.emotion)).length;
-      const avgConf = Math.round((capturedDetections.reduce((s, d) => s + d.confidence, 0) / total) * 100);
+      const primaryDetections = capturedDetections.filter(d => (d.face_id || 1) === 1);
+      const total = primaryDetections.length > 0 ? primaryDetections.length : 1;
+      const happy = primaryDetections.filter((d) => d.emotion === 'happy').length;
+      const neutral = primaryDetections.filter((d) => d.emotion === 'neutral').length;
+      const tension = primaryDetections.filter((d) => ['angry', 'fear', 'disgust', 'sad'].includes(d.emotion)).length;
+      const avgConf = Math.round((primaryDetections.reduce((s, d) => s + d.confidence, 0) / total) * 100);
 
       const compScore = Math.max(55, Math.min(100, Math.round(100 - (tension / total) * 120)));
       const warmScore = Math.max(50, Math.min(100, Math.round((happy / total) * 100 * 2.5 + (neutral / total) * 50)));

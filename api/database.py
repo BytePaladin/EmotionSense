@@ -196,9 +196,22 @@ def init_db():
             timestamp REAL NOT NULL,
             emotion TEXT NOT NULL,
             confidence REAL NOT NULL,
+            face_id INTEGER,
+            box_x REAL,
+            box_y REAL,
+            box_w REAL,
+            box_h REAL,
             FOREIGN KEY (file_id) REFERENCES uploaded_files(id) ON DELETE CASCADE
         )
     ''')
+    try:
+        db.execute("ALTER TABLE detection_results ADD COLUMN face_id INTEGER")
+        db.execute("ALTER TABLE detection_results ADD COLUMN box_x REAL")
+        db.execute("ALTER TABLE detection_results ADD COLUMN box_y REAL")
+        db.execute("ALTER TABLE detection_results ADD COLUMN box_w REAL")
+        db.execute("ALTER TABLE detection_results ADD COLUMN box_h REAL")
+    except Exception:
+        pass
     db.execute('''
         CREATE TABLE IF NOT EXISTS emotion_statistics (
             id TEXT PRIMARY KEY,
