@@ -31,6 +31,7 @@ def startup_event():
         startup_error = str(e)
 
 @app.get("/api/v1/ping")
+@app.get("/ping")
 def ping():
     return {"status": "ok", "startup_error": startup_error}
 
@@ -52,6 +53,7 @@ class UpdateProfile(BaseModel):
 
 # --- Auth Routes ---
 @app.post("/api/v1/register")
+@app.post("/register")
 def register(user: RegisterUser):
     if user.password != user.confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
@@ -73,6 +75,7 @@ def register(user: RegisterUser):
     return {"success": True, "message": "Registration successful", "data": {"id": user_id, "full_name": user.full_name, "email": user.email}}
 
 @app.post("/api/v1/login")
+@app.post("/login")
 def login(user: LoginUser):
     db = get_db()
     result = db.execute("SELECT * FROM users WHERE email = ?", [user.email.lower()])
@@ -101,10 +104,12 @@ def login(user: LoginUser):
     }
 
 @app.post("/api/v1/logout")
+@app.post("/logout")
 def logout():
     return {"success": True, "message": "Logged out successfully"}
 
 @app.get("/api/v1/profile")
+@app.get("/profile")
 def get_profile(current_user: dict = Depends(get_current_user)):
     db = get_db()
     result = db.execute("SELECT id, full_name, email, created_at, updated_at FROM users WHERE id = ?", [current_user["id"]])
@@ -120,6 +125,7 @@ def get_profile(current_user: dict = Depends(get_current_user)):
     return {"success": True, "data": user_data}
 
 @app.put("/api/v1/profile")
+@app.put("/profile")
 def update_profile(data: UpdateProfile, current_user: dict = Depends(get_current_user)):
     db = get_db()
     if data.new_password:
@@ -179,6 +185,7 @@ class UploadResultPayload(BaseModel):
     detections: List[Dict[str, Any]]
 
 @app.post("/api/v1/upload-result")
+@app.post("/upload-result")
 def save_upload_result(payload: UploadResultPayload, current_user: dict = Depends(get_current_user)):
     meta = payload.file_metadata
     detections = payload.detections
@@ -217,6 +224,7 @@ def save_upload_result(payload: UploadResultPayload, current_user: dict = Depend
 
 # --- Analytics Routes ---
 @app.get("/api/v1/statistics")
+@app.get("/statistics")
 def get_statistics(current_user: dict = Depends(get_current_user)):
     db = get_db()
     user_id = current_user["id"]
@@ -241,6 +249,7 @@ def get_statistics(current_user: dict = Depends(get_current_user)):
     }
 
 @app.get("/api/v1/history")
+@app.get("/history")
 def get_history(page: int = 1, limit: int = 10, search: str = "", current_user: dict = Depends(get_current_user)):
     db = get_db()
     offset = (page - 1) * limit
@@ -293,6 +302,7 @@ def get_history(page: int = 1, limit: int = 10, search: str = "", current_user: 
     }
 
 @app.delete("/api/v1/uploads/{file_id}")
+@app.delete("/uploads/{file_id}")
 def delete_upload(file_id: str, current_user: dict = Depends(get_current_user)):
     db = get_db()
     user_id = current_user["id"]
@@ -307,6 +317,7 @@ def delete_upload(file_id: str, current_user: dict = Depends(get_current_user)):
     return {"success": True, "message": "Upload deleted successfully"}
 
 @app.get("/api/v1/analysis/compare")
+@app.get("/analysis/compare")
 def compare_analysis(id1: str, id2: str, current_user: dict = Depends(get_current_user)):
     db = get_db()
     user_id = current_user["id"]
