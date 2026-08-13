@@ -172,110 +172,121 @@ export default function LiveCamera() {
       isProcessingFrameRef.current = true;
 
       try {
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.drawImage(video, 0, 0, displaySize.width, displaySize.height);
+        const detectedFaces = await faceapi.detectAllFaces(
+          video,
+          new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })
+        );
 
-        tempCanvas.toBlob(async (blob) => {
-          if (!blob) {
-            isProcessingFrameRef.current = false;
-            return;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (detectedFaces && detectedFaces.length > 0) {
+          const resizedFaces = faceapi.resizeResults(detectedFaces, displaySize);
+          const detections = [];
+          const timestamp = Number(((Date.now() - startTime) / 1000.0).toFixed(2));
+
+          for (let idx = 0; idx < resizedFaces.length; idx++) {
+            const faceDet = resizedFaces[idx];
+            const box = faceDet.box;
+            const fx = Math.max(0, Math.floor(box.x));
+            const fy = Math.max(0, Math.floor(box.y));
+            const fw = Math.min(Math.floor(box.width), displaySize.width - fx);
+            const fh = Math.min(Math.floor(box.height), displaySize.height - fy);
+
+            if (fw > 10 && fh > 10) {
+              const cropCanvas = document.createElement('canvas');
+              cropCanvas.width = fw;
+              cropCanvas.height = fh;
+              const cropCtx = cropCanvas.getContext('2d');
+              cropCtx.drawImage(video, fx, fy, fw, fh, 0, 0, fw, fh);
+
+              const faceBlob = await new Promise(resolve => cropCanvas.toBlob(resolve, 'image/jpeg', 0.9));
+              if (faceBlob) {
+                const formData = new FormData();
+                formData.append('file', faceBlob, `face_${idx}.jpg`);
+
+                try {
+                  const res = await api.post('/frame-inference', formData);
+                  if (res.data?.success && res.data?.data?.detections?.length > 0) {
+                    const topDet = res.data.data.detections[0];
+                    detections.push({
+                      timestamp,
+                      emotion: topDet.emotion || 'neutral',
+                      confidence: topDet.confidence || 0.9,
+                      face_id: idx + 1,
+                      box: { x: fx, y: fy, w: fw, h: fh }
+                    });
+                  }
+                } catch (apiErr) {
+                  console.error('[LiveCamera ONNX Face Inference Exception]:', apiErr);
+                }
+              }
+            }
           }
 
-          const formData = new FormData();
-          formData.append('file', blob, 'frame.jpg');
+          if (detections.length > 0) {
+            const topDet = detections[0];
+            setCurrentLiveEmotion(topDet.emotion);
+            setCurrentLiveConfidence(topDet.confidence);
 
-          try {
-            const res = await api.post('/frame-inference', formData);
-
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            if (res.data?.success && res.data?.data?.detections?.length > 0) {
-              const detections = res.data.data.detections;
-              const topDet = detections[0];
-              const mappedEmotion = topDet.emotion || 'neutral';
-              const confidence = topDet.confidence || 0.9;
-              const timestamp = Number(((Date.now() - startTime) / 1000.0).toFixed(2));
-
-              setCurrentLiveEmotion(mappedEmotion);
-              setCurrentLiveConfidence(confidence);
-
-              if (detectionsRef.current.length < 500 * detections.length) {
-                detections.forEach(det => {
-                  detectionsRef.current.push({
-                    timestamp,
-                    emotion: det.emotion || 'neutral',
-                    confidence: det.confidence || 0.9,
-                    face_id: det.face_id || 1,
-                    box_x: det.box?.x,
-                    box_y: det.box?.y,
-                    box_w: det.box?.w,
-                    box_h: det.box?.h
-                  });
+            if (detectionsRef.current.length < 500 * detections.length) {
+              detections.forEach(det => {
+                detectionsRef.current.push({
+                  timestamp,
+                  emotion: det.emotion,
+                  confidence: det.confidence,
+                  face_id: det.face_id,
+                  box_x: det.box.x,
+                  box_y: det.box.y,
+                  box_w: det.box.w,
+                  box_h: det.box.h
                 });
-                setDetectionCount(detectionsRef.current.length);
-                if (isCoachMode && Math.floor(detectionsRef.current.length / detections.length) % 3 === 0) {
-                  const primaryDetections = detectionsRef.current.filter(d => (d.face_id || 1) === 1);
-                  evaluateCoachFeedback(primaryDetections);
-                }
-              }
-
-              // Draw multi-face bounding boxes and labels onto live canvas
-              detections.forEach((det) => {
-                const box = det.box || { x: 50, y: 50, w: displaySize.width - 100, h: displaySize.height - 100 };
-                ctx.strokeStyle = '#00E676';
-                ctx.lineWidth = 3;
-                ctx.strokeRect(box.x, box.y, box.w, box.h);
-
-                ctx.fillStyle = '#00E676';
-                ctx.font = 'bold 16px Roboto, sans-serif';
-                const label = `${det.emotion.toUpperCase()} (${Math.round((det.confidence || 0.9) * 100)}%)`;
-                ctx.fillText(label, box.x, Math.max(box.y - 10, 20));
               });
-            }
-          } catch (apiErr) {
-            console.error('[LiveCamera Backend API Exception]:', apiErr);
-            // Fallback to client-side faceapi detection if backend is unreachable
-            const result = await faceapi
-              .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
-              .withFaceExpressions();
-
-            if (result && result.expressions) {
-              const resizedResult = faceapi.resizeResults(result, displaySize);
-              const ctx = canvas.getContext('2d');
-              ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-              const expressions = result.expressions;
-              const rawDominant = Object.keys(expressions).reduce((a, b) =>
-                expressions[a] > expressions[b] ? a : b
-              );
-              const mappedEmotion = EMOTION_MAP[rawDominant] || 'neutral';
-              const timestamp = Number(((Date.now() - startTime) / 1000.0).toFixed(2));
-              const confidence = Number(expressions[rawDominant].toFixed(2));
-
-              setCurrentLiveEmotion(mappedEmotion);
-              setCurrentLiveConfidence(confidence);
-
-              const newDetection = { timestamp, emotion: mappedEmotion, confidence, face_id: 1 };
-              if (detectionsRef.current.length < 500) {
-                detectionsRef.current.push(newDetection);
-                setDetectionCount(detectionsRef.current.length);
-                if (isCoachMode && detectionsRef.current.length % 3 === 0) {
-                  const primaryDetections = detectionsRef.current.filter(d => (d.face_id || 1) === 1);
-                  evaluateCoachFeedback(primaryDetections);
-                }
+              setDetectionCount(detectionsRef.current.length);
+              if (isCoachMode && Math.floor(detectionsRef.current.length / detections.length) % 3 === 0) {
+                const primaryDetections = detectionsRef.current.filter(d => (d.face_id || 1) === 1);
+                evaluateCoachFeedback(primaryDetections);
               }
-
-              const label = `${mappedEmotion} (${Math.round(confidence * 100)}%)`;
-              const drawBox = new faceapi.draw.DrawBox(resizedResult.detection.box, { label });
-              drawBox.draw(canvas);
             }
-          } finally {
-            isProcessingFrameRef.current = false;
+
+            // Render green bounding boxes & emotion labels for all faces
+            detections.forEach(det => {
+              const box = det.box;
+              ctx.strokeStyle = '#00E676';
+              ctx.lineWidth = 3;
+              ctx.strokeRect(box.x, box.y, box.w, box.h);
+
+              ctx.fillStyle = '#00E676';
+              ctx.font = 'bold 16px Roboto, sans-serif';
+              const label = `${det.emotion.toUpperCase()} (${Math.round((det.confidence || 0.9) * 100)}%)`;
+              ctx.fillText(label, box.x, Math.max(box.y - 10, 20));
+            });
           }
-        }, 'image/jpeg', 0.85);
+        } else {
+          // Fallback to full frame snapshot if no specific face box detected by faceapi
+          const tempCtx = tempCanvas.getContext('2d');
+          tempCtx.drawImage(video, 0, 0, displaySize.width, displaySize.height);
+          tempCanvas.toBlob(async (blob) => {
+            if (blob) {
+              const formData = new FormData();
+              formData.append('file', blob, 'frame.jpg');
+              try {
+                const res = await api.post('/frame-inference', formData);
+                if (res.data?.success && res.data?.data?.detections?.length > 0) {
+                  const detections = res.data.data.detections;
+                  const topDet = detections[0];
+                  setCurrentLiveEmotion(topDet.emotion || 'neutral');
+                  setCurrentLiveConfidence(topDet.confidence || 0.9);
+                }
+              } catch (e) {
+                console.error('Frame inference fallback error:', e);
+              }
+            }
+          }, 'image/jpeg', 0.85);
+        }
       } catch (err) {
-        console.error('Detection iteration error:', err);
+        console.error('Detection loop iteration error:', err);
+      } finally {
         isProcessingFrameRef.current = false;
       }
     }, 600);
