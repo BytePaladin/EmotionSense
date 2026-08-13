@@ -213,8 +213,8 @@ export default function LiveCamera() {
             const fw = Math.min(Math.floor(box.width * scaleX), displaySize.width - fx);
             const fh = Math.min(Math.floor(box.height * scaleY), displaySize.height - fy);
             
-            const padX = Math.floor(fw * 0.30);
-            const padY = Math.floor(fh * 0.40);
+            const padX = Math.floor(fw * 0.20);
+            const padY = Math.floor(fh * 0.20);
             const fxP = Math.max(0, fx - padX);
             const fyP = Math.max(0, fy - padY);
             const fwP = Math.min(displaySize.width - fxP, fw + 2 * padX);
@@ -222,7 +222,7 @@ export default function LiveCamera() {
             
             ctx.strokeStyle = '#00E676';
             ctx.lineWidth = 3;
-            ctx.strokeRect(fxP, fyP, fwP, fhP);
+            ctx.strokeRect(fx, fy, fw, fh);
             
             let bestMatch = null;
             let minDistance = Infinity;
@@ -245,7 +245,7 @@ export default function LiveCamera() {
               ctx.fillStyle = '#00E676';
               ctx.font = 'bold 16px Roboto, sans-serif';
               const label = `${bestMatch.emotion.toUpperCase()} (${Math.round((bestMatch.confidence || 0.9) * 100)}%)`;
-              ctx.fillText(label, fxP, Math.max(fyP - 10, 20));
+              ctx.fillText(label, fx, Math.max(fy - 10, 20));
             }
           });
         }
@@ -289,8 +289,8 @@ export default function LiveCamera() {
             const fh = Math.min(Math.floor(box.height * scaleY), displaySize.height - fy);
 
             // Add context expansion margin to preserve forehead, chin, jawline & ears
-            const padX = Math.floor(fw * 0.30);
-            const padY = Math.floor(fh * 0.40);
+            const padX = Math.floor(fw * 0.20);
+            const padY = Math.floor(fh * 0.20);
             const fxP = Math.max(0, fx - padX);
             const fyP = Math.max(0, fy - padY);
             const fwP = Math.min(displaySize.width - fxP, fw + 2 * padX);

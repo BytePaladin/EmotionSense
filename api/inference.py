@@ -28,7 +28,6 @@ HF_API_TOKEN = os.getenv("HF_API_TOKEN")
 API_URL = "https://router.huggingface.co/hf-inference/models/dima806/facial_emotions_image_detection"
 
 _onnx_session = None
-_mp_face_detector = None
 
 def get_onnx_session():
     """Lazy-load local ONNX Runtime Session."""
@@ -50,18 +49,7 @@ def get_onnx_session():
                 os.chdir(orig_cwd)
     return _onnx_session
 
-def get_mediapipe_detector():
-    """Lazy-load MediaPipe Face Detector."""
-    global _mp_face_detector
-    if _mp_face_detector is None:
-        try:
-            import mediapipe as mp
-            mp_face_detection = mp.solutions.face_detection
-            _mp_face_detector = mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5)
-            print("[INFO] Initialized MediaPipe Multi-Face Detector")
-        except Exception as e:
-            print(f"[WARNING] MediaPipe detector notice: {e}")
-    return _mp_face_detector
+
 
 def preprocess_face_pil(pil_img, image_size=224):
     """Preprocess cropped PIL face image for MobileNetV2 FER-2013 ImageNet normalization."""
