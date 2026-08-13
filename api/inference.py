@@ -204,7 +204,7 @@ def process_detections(hf_result):
         
     return detections
 
-def run_local_onnx_batch_inference(images_base64):
+def run_local_onnx_batch_inference(images_base64, temperature: float = 0.7):
     try:
         session = get_onnx_session()
         if session is None:
@@ -225,7 +225,9 @@ def run_local_onnx_batch_inference(images_base64):
         batch_tensors = np.vstack(face_crops)
         input_name = session.get_inputs()[0].name
         logits = session.run(None, {input_name: batch_tensors.astype(np.float32)})[0]
-        probs = np.exp(logits) / np.sum(np.exp(logits), axis=1, keepdims=True)
+        
+        scaled_logits = logits / max(0.1, temperature)
+        probs = np.exp(scaled_logits) / np.sum(np.exp(scaled_logits), axis=1, keepdims=True)
         
         detections = []
         for idx in range(len(face_crops)):
