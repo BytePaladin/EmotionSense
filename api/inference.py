@@ -34,12 +34,19 @@ def get_onnx_session():
     global _onnx_session
     model_path = find_local_model_path()
     if _onnx_session is None and os.path.exists(model_path):
+        model_dir = os.path.dirname(model_path)
+        orig_cwd = os.getcwd()
         try:
             import onnxruntime
-            _onnx_session = onnxruntime.InferenceSession(model_path)
+            if model_dir:
+                os.chdir(model_dir)
+            _onnx_session = onnxruntime.InferenceSession(os.path.basename(model_path))
             print(f"[INFO] Loaded local custom MobileNetV2 ONNX model from {model_path}")
         except Exception as e:
             print(f"[WARNING] Failed to load local ONNX model from {model_path}: {e}")
+        finally:
+            if model_dir:
+                os.chdir(orig_cwd)
     return _onnx_session
 
 def get_mediapipe_detector():

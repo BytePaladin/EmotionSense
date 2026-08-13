@@ -3,15 +3,12 @@ pydantic<2.0.0
 bcrypt<4.0.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
-
 python-dotenv==1.0.0
 requests==2.31.0
 email-validator==2.1.0
 PyJWT==2.8.0
 
-# ONNX & Computer Vision Dependencies for Local Model Serving on Vercel
+# Lightweight ONNX Inference Engine for Vercel Serverless
 onnxruntime>=1.15.0
-mediapipe>=0.10.0
-opencv-python-headless>=4.8.0
 Pillow>=9.0.0
 numpy>=1.24.0
