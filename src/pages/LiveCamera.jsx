@@ -51,6 +51,8 @@ export default function LiveCamera() {
   const trackedFacesRef = useRef([]);
   const nextFaceIdRef = useRef(1);
   const faceDetectorRef = useRef(null);
+  const animationFrameIdRef = useRef(null);
+  const latestEmotionsRef = useRef({});
 
   const [isModelsLoaded, setIsModelsLoaded] = useState(false);
   const [isSessionActive, setIsSessionActive] = useState(false);
@@ -117,6 +119,10 @@ export default function LiveCamera() {
       clearInterval(detectionIntervalRef.current);
       detectionIntervalRef.current = null;
     }
+    if (animationFrameIdRef.current) {
+      cancelAnimationFrame(animationFrameIdRef.current);
+      animationFrameIdRef.current = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -182,6 +188,75 @@ export default function LiveCamera() {
     tempCanvas.width = displaySize.width;
     tempCanvas.height = displaySize.height;
 
+    // Fast 60 FPS Render Loop (No API calls, just drawing)
+    const drawLoop = () => {
+      if (!video || video.paused || video.ended) {
+        animationFrameIdRef.current = requestAnimationFrame(drawLoop);
+        return;
+      }
+      
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      if (faceDetectorRef.current) {
+        const startTimeMs = performance.now();
+        const results = faceDetectorRef.current.detectForVideo(video, startTimeMs);
+        
+        if (results.detections && results.detections.length > 0) {
+          const scaleX = displaySize.width / video.videoWidth;
+          const scaleY = displaySize.height / video.videoHeight;
+          
+          results.detections.forEach(faceDet => {
+            const box = faceDet.boundingBox;
+            const fx = Math.max(0, Math.floor(box.originX * scaleX));
+            const fy = Math.max(0, Math.floor(box.originY * scaleY));
+            const fw = Math.min(Math.floor(box.width * scaleX), displaySize.width - fx);
+            const fh = Math.min(Math.floor(box.height * scaleY), displaySize.height - fy);
+            
+            const padX = Math.floor(fw * 0.30);
+            const padY = Math.floor(fh * 0.40);
+            const fxP = Math.max(0, fx - padX);
+            const fyP = Math.max(0, fy - padY);
+            const fwP = Math.min(displaySize.width - fxP, fw + 2 * padX);
+            const fhP = Math.min(displaySize.height - fyP, fh + 2 * padY);
+            
+            ctx.strokeStyle = '#00E676';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(fxP, fyP, fwP, fhP);
+            
+            let bestMatch = null;
+            let minDistance = Infinity;
+            const cx = fxP + fwP / 2;
+            const cy = fyP + fhP / 2;
+            
+            Object.keys(latestEmotionsRef.current).forEach(faceId => {
+              const prevDet = latestEmotionsRef.current[faceId];
+              if (!prevDet || !prevDet.box) return;
+              const pCx = prevDet.box.x + prevDet.box.w / 2;
+              const pCy = prevDet.box.y + prevDet.box.h / 2;
+              const dist = Math.sqrt(Math.pow(cx - pCx, 2) + Math.pow(cy - pCy, 2));
+              if (dist < minDistance && dist < displaySize.width / 2) {
+                minDistance = dist;
+                bestMatch = prevDet;
+              }
+            });
+            
+            if (bestMatch) {
+              ctx.fillStyle = '#00E676';
+              ctx.font = 'bold 16px Roboto, sans-serif';
+              const label = `${bestMatch.emotion.toUpperCase()} (${Math.round((bestMatch.confidence || 0.9) * 100)}%)`;
+              ctx.fillText(label, fxP, Math.max(fyP - 10, 20));
+            }
+          });
+        }
+      }
+      animationFrameIdRef.current = requestAnimationFrame(drawLoop);
+    };
+    
+    // Start continuous fast rendering loop
+    drawLoop();
+
+    // Slower Inference Loop (600ms) for sending frames to backend
     detectionIntervalRef.current = setInterval(async () => {
       if (!video || video.paused || video.ended || isProcessingFrameRef.current) return;
       isProcessingFrameRef.current = true;
@@ -194,9 +269,6 @@ export default function LiveCamera() {
 
         const startTimeMs = performance.now();
         const results = faceDetectorRef.current.detectForVideo(video, startTimeMs);
-
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         if (results.detections && results.detections.length > 0) {
           const detections = [];
@@ -216,9 +288,9 @@ export default function LiveCamera() {
             const fw = Math.min(Math.floor(box.width * scaleX), displaySize.width - fx);
             const fh = Math.min(Math.floor(box.height * scaleY), displaySize.height - fy);
 
-            // Add 20% context expansion margin to preserve forehead, chin, jawline & ears
-            const padX = Math.floor(fw * 0.20);
-            const padY = Math.floor(fh * 0.20);
+            // Add context expansion margin to preserve forehead, chin, jawline & ears
+            const padX = Math.floor(fw * 0.30);
+            const padY = Math.floor(fh * 0.40);
             const fxP = Math.max(0, fx - padX);
             const fyP = Math.max(0, fy - padY);
             const fwP = Math.min(displaySize.width - fxP, fw + 2 * padX);
@@ -238,7 +310,6 @@ export default function LiveCamera() {
           }
 
           if (faceBoxes.length > 0) {
-            // Centroid Tracking Algorithm to persist face_id across frames
             const currentTrackedFaces = [];
             
             faceBoxes.forEach((box, i) => {
@@ -259,7 +330,7 @@ export default function LiveCamera() {
               });
               
               if (matchedId !== null) {
-                trackedFacesRef.current.splice(matchedTrackIdx, 1); // consumed
+                trackedFacesRef.current.splice(matchedTrackIdx, 1);
                 currentTrackedFaces.push({ id: matchedId, cx, cy });
                 faceBoxes[i].face_id = matchedId;
               } else {
@@ -278,13 +349,16 @@ export default function LiveCamera() {
               if (res.data?.success && res.data?.data?.detections?.length > 0) {
                 const apiDets = res.data.data.detections;
                 apiDets.forEach((det, idx) => {
-                  detections.push({
+                  const faceId = faceBoxes[idx].face_id;
+                  const newDet = {
                     timestamp,
                     emotion: det.emotion || 'neutral',
                     confidence: det.confidence || 0.9,
-                    face_id: faceBoxes[idx].face_id,
+                    face_id: faceId,
                     box: faceBoxes[idx]
-                  });
+                  };
+                  detections.push(newDet);
+                  latestEmotionsRef.current[faceId] = newDet;
                 });
               }
             } catch (apiErr) {
@@ -316,34 +390,9 @@ export default function LiveCamera() {
                 evaluateCoachFeedback(primaryDetections);
               }
             }
-
-            // Render silky-smooth green bounding boxes & emotion labels for all faces
-            detections.forEach(det => {
-              const prevBox = smoothBoxesRef.current[det.face_id];
-              let box = det.box;
-              if (prevBox) {
-                const alpha = 0.65;
-                box = {
-                  x: Math.round(alpha * det.box.x + (1 - alpha) * prevBox.x),
-                  y: Math.round(alpha * det.box.y + (1 - alpha) * prevBox.y),
-                  w: Math.round(alpha * det.box.w + (1 - alpha) * prevBox.w),
-                  h: Math.round(alpha * det.box.h + (1 - alpha) * prevBox.h)
-                };
-              }
-              smoothBoxesRef.current[det.face_id] = box;
-
-              ctx.strokeStyle = '#00E676';
-              ctx.lineWidth = 3;
-              ctx.strokeRect(box.x, box.y, box.w, box.h);
-
-              ctx.fillStyle = '#00E676';
-              ctx.font = 'bold 16px Roboto, sans-serif';
-              const label = `${det.emotion.toUpperCase()} (${Math.round((det.confidence || 0.9) * 100)}%)`;
-              ctx.fillText(label, box.x, Math.max(box.y - 10, 20));
-            });
           }
         } else {
-          // Fallback to full frame snapshot if no specific face box detected by faceapi
+          // Full frame fallback
           const tempCtx = tempCanvas.getContext('2d');
           tempCtx.drawImage(video, 0, 0, displaySize.width, displaySize.height);
           tempCanvas.toBlob(async (blob) => {
@@ -353,8 +402,8 @@ export default function LiveCamera() {
               try {
                 const res = await api.post('/frame-inference', formData);
                 if (res.data?.success && res.data?.data?.detections?.length > 0) {
-                  const detections = res.data.data.detections;
-                  const topDet = detections[0];
+                  const apiDets = res.data.data.detections;
+                  const topDet = apiDets[0];
                   setCurrentLiveEmotion(topDet.emotion || 'neutral');
                   setCurrentLiveConfidence(topDet.confidence || 0.9);
                 }
@@ -371,7 +420,6 @@ export default function LiveCamera() {
       }
     }, 600);
   };
-
   const handleOverrideEmotion = (targetEmotion) => {
     if (!isSessionActive) return;
 

@@ -4,7 +4,7 @@ import base64
 import time
 import requests
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -65,9 +65,16 @@ def get_mediapipe_detector():
 
 def preprocess_face_pil(pil_img, image_size=224):
     """Preprocess cropped PIL face image for MobileNetV2 FER-2013 ImageNet normalization."""
-    # Convert to Grayscale then RGB (R=G=B) to match FER-2013 dataset features
-    pil_img = pil_img.convert("L").convert("RGB").resize((image_size, image_size))
-    img_np = np.array(pil_img, dtype=np.float32) / 255.0
+    # Convert to Grayscale
+    gray_img = pil_img.convert("L")
+    
+    # Apply Histogram Equalization to enhance facial micro-expressions & fix lighting issues
+    equalized_img = ImageOps.equalize(gray_img)
+    
+    # Convert back to RGB (R=G=B) to match FER-2013 dataset features
+    rgb_img = equalized_img.convert("RGB").resize((image_size, image_size))
+    
+    img_np = np.array(rgb_img, dtype=np.float32) / 255.0
     
     # ImageNet mean & std
     mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
@@ -79,7 +86,7 @@ def preprocess_face_pil(pil_img, image_size=224):
     img_np = np.expand_dims(img_np, axis=0)
     return img_np
 
-def run_local_onnx_inference(image_bytes: bytes, temperature: float = 0.7):
+def run_local_onnx_inference(image_bytes: bytes, temperature: float = 1.0):
     """Runs local MobileNetV2 ONNX emotion inference on provided face image bytes with Temperature Scaling."""
     try:
         session = get_onnx_session()
@@ -204,7 +211,7 @@ def process_detections(hf_result):
         
     return detections
 
-def run_local_onnx_batch_inference(images_base64, temperature: float = 0.7):
+def run_local_onnx_batch_inference(images_base64, temperature: float = 1.0):
     try:
         session = get_onnx_session()
         if session is None:
