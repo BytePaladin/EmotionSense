@@ -47,6 +47,7 @@ export default function LiveCamera() {
   const detectionIntervalRef = useRef(null);
   const detectionsRef = useRef([]);
   const correctionsBufferRef = useRef([]);
+  const smoothBoxesRef = useRef({});
 
   const [isModelsLoaded, setIsModelsLoaded] = useState(false);
   const [isSessionActive, setIsSessionActive] = useState(false);
@@ -262,9 +263,21 @@ export default function LiveCamera() {
               }
             }
 
-            // Render green bounding boxes & emotion labels for all faces
+            // Render silky-smooth green bounding boxes & emotion labels for all faces
             detections.forEach(det => {
-              const box = det.box;
+              const prevBox = smoothBoxesRef.current[det.face_id];
+              let box = det.box;
+              if (prevBox) {
+                const alpha = 0.65;
+                box = {
+                  x: Math.round(alpha * det.box.x + (1 - alpha) * prevBox.x),
+                  y: Math.round(alpha * det.box.y + (1 - alpha) * prevBox.y),
+                  w: Math.round(alpha * det.box.w + (1 - alpha) * prevBox.w),
+                  h: Math.round(alpha * det.box.h + (1 - alpha) * prevBox.h)
+                };
+              }
+              smoothBoxesRef.current[det.face_id] = box;
+
               ctx.strokeStyle = '#00E676';
               ctx.lineWidth = 3;
               ctx.strokeRect(box.x, box.y, box.w, box.h);

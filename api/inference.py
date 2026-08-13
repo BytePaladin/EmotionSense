@@ -64,8 +64,9 @@ def get_mediapipe_detector():
     return _mp_face_detector
 
 def preprocess_face_pil(pil_img, image_size=224):
-    """Preprocess cropped PIL face image for MobileNetV2 ImageNet normalization."""
-    pil_img = pil_img.convert("RGB").resize((image_size, image_size))
+    """Preprocess cropped PIL face image for MobileNetV2 FER-2013 ImageNet normalization."""
+    # Convert to Grayscale then RGB (R=G=B) to match FER-2013 dataset features
+    pil_img = pil_img.convert("L").convert("RGB").resize((image_size, image_size))
     img_np = np.array(pil_img, dtype=np.float32) / 255.0
     
     # ImageNet mean & std
