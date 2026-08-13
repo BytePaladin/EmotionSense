@@ -213,8 +213,8 @@ export default function LiveCamera() {
             const fw = Math.min(Math.floor(box.width * scaleX), displaySize.width - fx);
             const fh = Math.min(Math.floor(box.height * scaleY), displaySize.height - fy);
             
-            const padX = Math.floor(fw * 0.20);
-            const padY = Math.floor(fh * 0.20);
+            const padX = Math.floor(fw * 0.25);
+            const padY = Math.floor(fh * 0.25);
             const fxP = Math.max(0, fx - padX);
             const fyP = Math.max(0, fy - padY);
             const fwP = Math.min(displaySize.width - fxP, fw + 2 * padX);
@@ -289,8 +289,8 @@ export default function LiveCamera() {
             const fh = Math.min(Math.floor(box.height * scaleY), displaySize.height - fy);
 
             // Add context expansion margin to preserve forehead, chin, jawline & ears
-            const padX = Math.floor(fw * 0.20);
-            const padY = Math.floor(fh * 0.20);
+            const padX = Math.floor(fw * 0.25);
+            const padY = Math.floor(fh * 0.25);
             const fxP = Math.max(0, fx - padX);
             const fyP = Math.max(0, fy - padY);
             const fwP = Math.min(displaySize.width - fxP, fw + 2 * padX);
