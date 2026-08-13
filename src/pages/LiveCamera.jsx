@@ -48,6 +48,8 @@ export default function LiveCamera() {
   const detectionsRef = useRef([]);
   const correctionsBufferRef = useRef([]);
   const smoothBoxesRef = useRef({});
+  const trackedFacesRef = useRef([]);
+  const nextFaceIdRef = useRef(1);
 
   const [isModelsLoaded, setIsModelsLoaded] = useState(false);
   const [isSessionActive, setIsSessionActive] = useState(false);
@@ -218,6 +220,41 @@ export default function LiveCamera() {
             }
           }
 
+          if (faceBoxes.length > 0) {
+            // Centroid Tracking Algorithm to persist face_id across frames
+            const currentTrackedFaces = [];
+            
+            faceBoxes.forEach((box, i) => {
+              const cx = box.x + box.w / 2;
+              const cy = box.y + box.h / 2;
+              
+              let matchedId = null;
+              let minDistance = Infinity;
+              let matchedTrackIdx = -1;
+              
+              trackedFacesRef.current.forEach((tracked, tIdx) => {
+                const dist = Math.sqrt(Math.pow(cx - tracked.cx, 2) + Math.pow(cy - tracked.cy, 2));
+                if (dist < minDistance && dist < displaySize.width / 2) {
+                  minDistance = dist;
+                  matchedId = tracked.id;
+                  matchedTrackIdx = tIdx;
+                }
+              });
+              
+              if (matchedId !== null) {
+                trackedFacesRef.current.splice(matchedTrackIdx, 1); // consumed
+                currentTrackedFaces.push({ id: matchedId, cx, cy });
+                faceBoxes[i].face_id = matchedId;
+              } else {
+                const newId = nextFaceIdRef.current++;
+                currentTrackedFaces.push({ id: newId, cx, cy });
+                faceBoxes[i].face_id = newId;
+              }
+            });
+            
+            trackedFacesRef.current = currentTrackedFaces;
+          }
+
           if (faceBase64List.length > 0) {
             try {
               const res = await api.post('/frame-inference/batch', { faces: faceBase64List });
@@ -228,7 +265,7 @@ export default function LiveCamera() {
                     timestamp,
                     emotion: det.emotion || 'neutral',
                     confidence: det.confidence || 0.9,
-                    face_id: idx + 1,
+                    face_id: faceBoxes[idx].face_id,
                     box: faceBoxes[idx]
                   });
                 });
