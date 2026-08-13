@@ -22,7 +22,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Tune as TuneIcon
 } from '@mui/icons-material';
-import * as faceapi from '@vladmandic/face-api';
+import { FaceDetector, FilesetResolver } from '@mediapipe/tasks-vision';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 import api from '../api/axios';
@@ -50,6 +50,7 @@ export default function LiveCamera() {
   const smoothBoxesRef = useRef({});
   const trackedFacesRef = useRef([]);
   const nextFaceIdRef = useRef(1);
+  const faceDetectorRef = useRef(null);
 
   const [isModelsLoaded, setIsModelsLoaded] = useState(false);
   const [isSessionActive, setIsSessionActive] = useState(false);
@@ -83,21 +84,31 @@ export default function LiveCamera() {
   useEffect(() => {
     const loadModels = async () => {
       try {
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
-          faceapi.nets.ssdMobilenetv1.loadFromUri('/models'),
-          faceapi.nets.faceExpressionNet.loadFromUri('/models')
-        ]);
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm"
+        );
+        const detector = await FaceDetector.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+            delegate: "GPU"
+          },
+          runningMode: "VIDEO",
+          minDetectionConfidence: 0.5
+        });
+        faceDetectorRef.current = detector;
         setIsModelsLoaded(true);
       } catch (err) {
         console.error('Error loading models:', err);
-        setError('Failed to load AI models. Please ensure model files are accessible in /models.');
+        setError('Failed to load AI models. Please ensure internet access for MediaPipe.');
       }
     };
     loadModels();
 
     return () => {
       stopCamera();
+      if (faceDetectorRef.current) {
+        faceDetectorRef.current.close();
+      }
     };
   }, []);
 
@@ -176,36 +187,34 @@ export default function LiveCamera() {
       isProcessingFrameRef.current = true;
 
       try {
-        let detectedFaces = [];
-        try {
-          detectedFaces = await faceapi.detectAllFaces(
-            video,
-            new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 })
-          );
-        } catch (e) {
-          detectedFaces = await faceapi.detectAllFaces(
-            video,
-            new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })
-          );
+        if (!faceDetectorRef.current) {
+          isProcessingFrameRef.current = false;
+          return;
         }
+
+        const startTimeMs = performance.now();
+        const results = faceDetectorRef.current.detectForVideo(video, startTimeMs);
 
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        if (detectedFaces && detectedFaces.length > 0) {
-          const resizedFaces = faceapi.resizeResults(detectedFaces, displaySize);
+        if (results.detections && results.detections.length > 0) {
           const detections = [];
           const timestamp = Number(((Date.now() - startTime) / 1000.0).toFixed(2));
           const faceBase64List = [];
           const faceBoxes = [];
 
-          for (let idx = 0; idx < resizedFaces.length; idx++) {
-            const faceDet = resizedFaces[idx];
-            const box = faceDet.box;
-            const fx = Math.max(0, Math.floor(box.x));
-            const fy = Math.max(0, Math.floor(box.y));
-            const fw = Math.min(Math.floor(box.width), displaySize.width - fx);
-            const fh = Math.min(Math.floor(box.height), displaySize.height - fy);
+          const scaleX = displaySize.width / video.videoWidth;
+          const scaleY = displaySize.height / video.videoHeight;
+
+          for (let idx = 0; idx < results.detections.length; idx++) {
+            const faceDet = results.detections[idx];
+            const box = faceDet.boundingBox;
+            
+            const fx = Math.max(0, Math.floor(box.originX * scaleX));
+            const fy = Math.max(0, Math.floor(box.originY * scaleY));
+            const fw = Math.min(Math.floor(box.width * scaleX), displaySize.width - fx);
+            const fh = Math.min(Math.floor(box.height * scaleY), displaySize.height - fy);
 
             // Add 20% context expansion margin to preserve forehead, chin, jawline & ears
             const padX = Math.floor(fw * 0.20);
