@@ -82,6 +82,7 @@ export default function LiveCamera() {
       try {
         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+          faceapi.nets.ssdMobilenetv1.loadFromUri('/models'),
           faceapi.nets.faceExpressionNet.loadFromUri('/models')
         ]);
         setIsModelsLoaded(true);
@@ -172,10 +173,18 @@ export default function LiveCamera() {
       isProcessingFrameRef.current = true;
 
       try {
-        const detectedFaces = await faceapi.detectAllFaces(
-          video,
-          new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })
-        );
+        let detectedFaces = [];
+        try {
+          detectedFaces = await faceapi.detectAllFaces(
+            video,
+            new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 })
+          );
+        } catch (e) {
+          detectedFaces = await faceapi.detectAllFaces(
+            video,
+            new faceapi.TinyFaceDetectorOptions({ inputSize: 224 })
+          );
+        }
 
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
