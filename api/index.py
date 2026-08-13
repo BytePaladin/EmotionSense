@@ -144,6 +144,7 @@ def update_profile(data: UpdateProfile, current_user: dict = Depends(get_current
     return get_profile(current_user)
 
 @app.post("/api/v1/mock-inference")
+@app.post("/mock-inference")
 async def analyze_file(file: UploadFile = File(...)):
     # Read file bytes
     file_bytes = await file.read()
@@ -158,6 +159,7 @@ async def analyze_file(file: UploadFile = File(...)):
     return {"success": True, "data": {"detections": detections}}
 
 @app.post("/api/v1/frame-inference")
+@app.post("/frame-inference")
 async def analyze_frame(file: UploadFile = File(...)):
     file_bytes = await file.read()
     try:
