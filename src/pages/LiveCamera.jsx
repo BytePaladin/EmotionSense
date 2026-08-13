@@ -233,7 +233,7 @@ export default function LiveCamera() {
               
               const dataUrl = cropCanvas.toDataURL('image/jpeg', 0.9);
               faceBase64List.push(dataUrl);
-              faceBoxes.push({ x: fx, y: fy, w: fw, h: fh });
+              faceBoxes.push({ x: fxP, y: fyP, w: fwP, h: fhP });
             }
           }
 
