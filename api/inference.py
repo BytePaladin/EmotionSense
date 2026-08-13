@@ -79,8 +79,8 @@ def preprocess_face_pil(pil_img, image_size=224):
     img_np = np.expand_dims(img_np, axis=0)
     return img_np
 
-def run_local_onnx_inference(image_bytes: bytes):
-    """Runs local MobileNetV2 ONNX emotion inference on provided face image bytes."""
+def run_local_onnx_inference(image_bytes: bytes, temperature: float = 0.7):
+    """Runs local MobileNetV2 ONNX emotion inference on provided face image bytes with Temperature Scaling."""
     try:
         session = get_onnx_session()
         if session is None:
@@ -92,7 +92,10 @@ def run_local_onnx_inference(image_bytes: bytes):
         crop_tensor = preprocess_face_pil(pil_image)
         input_name = session.get_inputs()[0].name
         logits = session.run(None, {input_name: crop_tensor.astype(np.float32)})[0]
-        probs = np.exp(logits) / np.sum(np.exp(logits), axis=1, keepdims=True)
+        
+        # Apply Temperature Scaling (T=0.7) for sharp, confident emotion probabilities
+        scaled_logits = logits / max(0.1, temperature)
+        probs = np.exp(scaled_logits) / np.sum(np.exp(scaled_logits), axis=1, keepdims=True)
         
         top_idx = int(np.argmax(probs[0]))
         emotion = EMOTIONS[top_idx]

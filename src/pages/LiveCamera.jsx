@@ -207,12 +207,20 @@ export default function LiveCamera() {
             const fw = Math.min(Math.floor(box.width), displaySize.width - fx);
             const fh = Math.min(Math.floor(box.height), displaySize.height - fy);
 
-            if (fw > 10 && fh > 10) {
+            // Add 20% context expansion margin to preserve forehead, chin, jawline & ears
+            const padX = Math.floor(fw * 0.20);
+            const padY = Math.floor(fh * 0.20);
+            const fxP = Math.max(0, fx - padX);
+            const fyP = Math.max(0, fy - padY);
+            const fwP = Math.min(displaySize.width - fxP, fw + 2 * padX);
+            const fhP = Math.min(displaySize.height - fyP, fh + 2 * padY);
+
+            if (fwP > 10 && fhP > 10) {
               const cropCanvas = document.createElement('canvas');
-              cropCanvas.width = fw;
-              cropCanvas.height = fh;
+              cropCanvas.width = fwP;
+              cropCanvas.height = fhP;
               const cropCtx = cropCanvas.getContext('2d');
-              cropCtx.drawImage(video, fx, fy, fw, fh, 0, 0, fw, fh);
+              cropCtx.drawImage(video, fxP, fyP, fwP, fhP, 0, 0, fwP, fhP);
               
               const dataUrl = cropCanvas.toDataURL('image/jpeg', 0.9);
               faceBase64List.push(dataUrl);
