@@ -52,27 +52,24 @@ def get_onnx_session():
 
 
 def preprocess_face_pil(pil_img, image_size=224):
-    """Preprocess cropped PIL face image for MobileNetV2 FER-2013 ImageNet normalization."""
-    # Convert to Grayscale
-    gray_img = pil_img.convert("L")
+    """Preprocess cropped PIL face image for MobileNetV2."""
+    # Keep the original color channels! The model relies on RGB ImageNet features.
+    img = pil_img.convert("RGB").resize((image_size, image_size))
     
-    # Apply Histogram Equalization to enhance facial micro-expressions & fix lighting issues
-    equalized_img = ImageOps.equalize(gray_img)
+    img_array = np.array(img).astype(np.float32)
     
-    # Convert back to RGB (R=G=B) to match FER-2013 dataset features
-    rgb_img = equalized_img.convert("RGB").resize((image_size, image_size))
+    # Convert from HWC to CHW format
+    img_array = np.transpose(img_array, (2, 0, 1))
     
-    img_np = np.array(rgb_img, dtype=np.float32) / 255.0
+    # Normalize with ImageNet stats
+    mean = np.array([0.485, 0.456, 0.406]).reshape(3, 1, 1)
+    std = np.array([0.229, 0.224, 0.225]).reshape(3, 1, 1)
+    img_array = (img_array / 255.0 - mean) / std
     
-    # ImageNet mean & std
-    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-    std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-    img_np = (img_np - mean) / std
+    # Add batch dimension
+    input_tensor = np.expand_dims(img_array, axis=0)
     
-    # Convert HWC to CHW and add batch dimension
-    img_np = np.transpose(img_np, (2, 0, 1))
-    img_np = np.expand_dims(img_np, axis=0)
-    return img_np
+    return input_tensor
 
 def run_local_onnx_inference(image_bytes: bytes, temperature: float = 1.0):
     """Runs local MobileNetV2 ONNX emotion inference on provided face image bytes with Temperature Scaling."""
