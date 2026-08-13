@@ -77,86 +77,32 @@ def preprocess_face_pil(pil_img, image_size=224):
     img_np = np.expand_dims(img_np, axis=0)
     return img_np
 
-def detect_face_boxes(image_np):
-    """Detect multi-face bounding boxes using MediaPipe or OpenCV Haar Cascade fallback."""
-    h, w, _ = image_np.shape
-    face_boxes = []
-    
-    # 1. Try MediaPipe detector
-    try:
-        detector = get_mediapipe_detector()
-        if detector:
-            results = detector.process(image_np)
-            if results.detections:
-                for detection in results.detections:
-                    bboxC = detection.location_data.relative_bounding_box
-                    x = max(0, int(bboxC.xmin * w))
-                    y = max(0, int(bboxC.ymin * h))
-                    bw = min(int(bboxC.width * w), w - x)
-                    bh = min(int(bboxC.height * h), h - y)
-                    if bw > 10 and bh > 10:
-                        face_boxes.append((x, y, bw, bh))
-    except Exception as mp_err:
-        print(f"[WARNING] MediaPipe detector notice: {mp_err}")
-        
-    # 2. Try OpenCV Haar Cascade multi-face detector if MediaPipe yielded no boxes
-    if not face_boxes:
-        try:
-            import cv2
-            gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
-            cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-            face_cascade = cv2.CascadeClassifier(cascade_path)
-            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(30, 30))
-            for (fx, fy, fw, fh) in faces:
-                face_boxes.append((int(fx), int(fy), int(fw), int(fh)))
-        except Exception as cv_err:
-            print(f"[WARNING] OpenCV Haar Cascade notice: {cv_err}")
-            
-    # 3. Fallback to full frame if no face boxes detected
-    if not face_boxes:
-        face_boxes.append((0, 0, w, h))
-        
-    return face_boxes
-
 def run_local_onnx_inference(image_bytes: bytes):
-    """Runs local multi-face cropping + MobileNetV2 ONNX emotion inference."""
+    """Runs local MobileNetV2 ONNX emotion inference on provided face image bytes."""
     try:
         session = get_onnx_session()
         if session is None:
             return None
             
         pil_image = Image.open(io.BytesIO(image_bytes))
-        image_np = np.array(pil_image.convert("RGB"))
+        w, h = pil_image.size
         
-        face_boxes = detect_face_boxes(image_np)
-            
-        detections = []
-        face_crops = []
-        
-        for (x, y, bw, bh) in face_boxes:
-            crop_pil = pil_image.crop((x, y, x + bw, y + bh))
-            crop_tensor = preprocess_face_pil(crop_pil)
-            face_crops.append(crop_tensor)
-            
-        batch_tensors = np.vstack(face_crops)
+        crop_tensor = preprocess_face_pil(pil_image)
         input_name = session.get_inputs()[0].name
-        logits = session.run(None, {input_name: batch_tensors.astype(np.float32)})[0]
+        logits = session.run(None, {input_name: crop_tensor.astype(np.float32)})[0]
         probs = np.exp(logits) / np.sum(np.exp(logits), axis=1, keepdims=True)
         
-        for idx, (x, y, bw, bh) in enumerate(face_boxes):
-            top_idx = int(np.argmax(probs[idx]))
-            emotion = EMOTIONS[top_idx]
-            confidence = float(probs[idx][top_idx])
-            
-            detections.append({
-                "timestamp": 0.0,
-                "emotion": emotion,
-                "confidence": round(confidence, 4),
-                "face_id": idx + 1,
-                "box": {"x": x, "y": y, "w": bw, "h": bh}
-            })
-            
-        return detections
+        top_idx = int(np.argmax(probs[0]))
+        emotion = EMOTIONS[top_idx]
+        confidence = float(probs[0][top_idx])
+        
+        return [{
+            "timestamp": 0.0,
+            "emotion": emotion,
+            "confidence": round(confidence, 4),
+            "face_id": 1,
+            "box": {"x": 0, "y": 0, "w": w, "h": h}
+        }]
     except Exception as e:
         print(f"[WARNING] ONNX inference exception: {e}")
         return None

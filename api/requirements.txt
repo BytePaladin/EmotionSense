@@ -8,8 +8,7 @@ requests==2.31.0
 email-validator==2.1.0
 PyJWT==2.8.0
 
-# ONNX Runtime & OpenCV Multi-Face Detection for Vercel Serverless (~110MB total bundle)
+# Lightweight ONNX Engine for Vercel Serverless (~60MB Total Size)
 onnxruntime>=1.15.0
-opencv-python-headless>=4.8.0
 Pillow>=9.0.0
 numpy>=1.24.0
