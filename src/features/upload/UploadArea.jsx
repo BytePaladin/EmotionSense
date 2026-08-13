@@ -93,8 +93,8 @@ export default function UploadArea() {
             <CloudUpload sx={{ fontSize: 40, color: isDragging ? 'primary.main' : 'text.secondary' }} />
           </Box>
           <Typography variant="h6" fontWeight="semibold" gutterBottom>Drag & Drop your media here</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 400, mx: 'auto', mb: 4 }}>Support for JPG, PNG, MP4, MOV. Max file size is 20MB.</Typography>
-          <input type="file" ref={fileInputRef} hidden accept="image/jpeg,image/png,image/jpg,video/mp4,video/quicktime,video/x-msvideo" onChange={e => handleFileSelect(e.target.files[0])} />
+          <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 400, mx: 'auto', mb: 4 }}>Support for JPG, PNG. Max file size is 20MB.</Typography>
+          <input type="file" ref={fileInputRef} hidden accept="image/jpeg,image/png,image/jpg" onChange={e => handleFileSelect(e.target.files[0])} />
           <Button variant="contained" size="large" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>Browse Files</Button>
         </MuiCard>
       ) : (

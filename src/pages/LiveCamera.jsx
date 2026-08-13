@@ -193,6 +193,8 @@ export default function LiveCamera() {
           const resizedFaces = faceapi.resizeResults(detectedFaces, displaySize);
           const detections = [];
           const timestamp = Number(((Date.now() - startTime) / 1000.0).toFixed(2));
+          const faceBase64List = [];
+          const faceBoxes = [];
 
           for (let idx = 0; idx < resizedFaces.length; idx++) {
             const faceDet = resizedFaces[idx];
@@ -208,28 +210,30 @@ export default function LiveCamera() {
               cropCanvas.height = fh;
               const cropCtx = cropCanvas.getContext('2d');
               cropCtx.drawImage(video, fx, fy, fw, fh, 0, 0, fw, fh);
+              
+              const dataUrl = cropCanvas.toDataURL('image/jpeg', 0.9);
+              faceBase64List.push(dataUrl);
+              faceBoxes.push({ x: fx, y: fy, w: fw, h: fh });
+            }
+          }
 
-              const faceBlob = await new Promise(resolve => cropCanvas.toBlob(resolve, 'image/jpeg', 0.9));
-              if (faceBlob) {
-                const formData = new FormData();
-                formData.append('file', faceBlob, `face_${idx}.jpg`);
-
-                try {
-                  const res = await api.post('/frame-inference', formData);
-                  if (res.data?.success && res.data?.data?.detections?.length > 0) {
-                    const topDet = res.data.data.detections[0];
-                    detections.push({
-                      timestamp,
-                      emotion: topDet.emotion || 'neutral',
-                      confidence: topDet.confidence || 0.9,
-                      face_id: idx + 1,
-                      box: { x: fx, y: fy, w: fw, h: fh }
-                    });
-                  }
-                } catch (apiErr) {
-                  console.error('[LiveCamera ONNX Face Inference Exception]:', apiErr);
-                }
+          if (faceBase64List.length > 0) {
+            try {
+              const res = await api.post('/frame-inference/batch', { faces: faceBase64List });
+              if (res.data?.success && res.data?.data?.detections?.length > 0) {
+                const apiDets = res.data.data.detections;
+                apiDets.forEach((det, idx) => {
+                  detections.push({
+                    timestamp,
+                    emotion: det.emotion || 'neutral',
+                    confidence: det.confidence || 0.9,
+                    face_id: idx + 1,
+                    box: faceBoxes[idx]
+                  });
+                });
               }
+            } catch (apiErr) {
+              console.error('[LiveCamera ONNX Batch Inference Exception]:', apiErr);
             }
           }
 

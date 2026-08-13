@@ -175,6 +175,19 @@ async def analyze_frame(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class BatchInferenceRequest(BaseModel):
+    faces: List[str]
+
+@app.post("/api/v1/frame-inference/batch")
+@app.post("/frame-inference/batch")
+async def analyze_frame_batch(request: BatchInferenceRequest):
+    try:
+        from api.inference import analyze_batch
+        result = analyze_batch(request.faces)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 class FileMetadata(BaseModel):
     file_name: str
     file_type: str

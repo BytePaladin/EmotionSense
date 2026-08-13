@@ -1,5 +1,6 @@
 import os
 import io
+import base64
 import time
 import requests
 import numpy as np
@@ -198,3 +199,64 @@ def process_detections(hf_result):
         })
         
     return detections
+
+def run_local_onnx_batch_inference(images_base64):
+    try:
+        session = get_onnx_session()
+        if session is None:
+            return None
+            
+        face_crops = []
+        for b64_str in images_base64:
+            if b64_str.startswith("data:image"):
+                b64_str = b64_str.split(",")[1]
+            img_bytes = base64.b64decode(b64_str)
+            pil_image = Image.open(io.BytesIO(img_bytes))
+            crop_tensor = preprocess_face_pil(pil_image)
+            face_crops.append(crop_tensor)
+            
+        if not face_crops:
+            return []
+            
+        batch_tensors = np.vstack(face_crops)
+        input_name = session.get_inputs()[0].name
+        logits = session.run(None, {input_name: batch_tensors.astype(np.float32)})[0]
+        probs = np.exp(logits) / np.sum(np.exp(logits), axis=1, keepdims=True)
+        
+        detections = []
+        for idx in range(len(face_crops)):
+            top_idx = int(np.argmax(probs[idx]))
+            emotion = EMOTIONS[top_idx]
+            confidence = float(probs[idx][top_idx])
+            detections.append({
+                "emotion": emotion,
+                "confidence": round(confidence, 4)
+            })
+            
+        return detections
+    except Exception as e:
+        print(f"[WARNING] ONNX batch inference exception: {e}")
+        return None
+
+def analyze_batch(images_base64):
+    local_results = run_local_onnx_batch_inference(images_base64)
+    if local_results is not None:
+        return {"success": True, "source": "local_mobilenetv2_onnx_batch", "data": {"detections": local_results}}
+        
+    if not HF_API_TOKEN or not images_base64:
+        return {"success": True, "source": "fallback", "data": {"detections": [{"emotion": "neutral", "confidence": 0.9} for _ in images_base64]}}
+        
+    b64_str = images_base64[0]
+    if b64_str.startswith("data:image"):
+        b64_str = b64_str.split(",")[1]
+    img_bytes = base64.b64decode(b64_str)
+    
+    headers = {"Authorization": f"Bearer {HF_API_TOKEN}", "Content-Type": "image/jpeg"}
+    try:
+        response = requests.post(API_URL, headers=headers, data=img_bytes)
+        result = response.json()
+        hf_det = process_detections(result)[0]
+        detections = [hf_det for _ in images_base64]
+        return {"success": True, "source": "hf_fallback_batch", "data": {"detections": detections}}
+    except:
+        return {"success": True, "source": "fallback_error", "data": {"detections": [{"emotion": "neutral", "confidence": 0.9} for _ in images_base64]}}

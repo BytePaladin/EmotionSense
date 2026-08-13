@@ -718,7 +718,7 @@ export default function AdminDashboard() {
                         <TableCell>
                           <Chip
                             label={
-                              log.file_type === 'live_camera' || log.file_name?.includes('live')
+                              ['live_camera', 'live_session', 'coach_session'].includes(log.file_type) || log.file_name?.toLowerCase().includes('live') || log.file_name?.toLowerCase().includes('coach')
                                 ? 'Live Camera'
                                 : log.file_type?.includes('video')
                                 ? 'Video'
