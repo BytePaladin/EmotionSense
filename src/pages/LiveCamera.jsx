@@ -105,7 +105,7 @@ export default function LiveCamera() {
         setIsModelsLoaded(true);
       } catch (err) {
         console.error('Error loading models:', err);
-        setError('Failed to load AI models. Please ensure internet access.');
+        setError(`Failed to load AI models: ${err.message || 'Please check console for details.'}`);
       }
     };
     loadModels();

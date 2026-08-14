@@ -1,7 +1,7 @@
 import * as ort from 'onnxruntime-web';
 
-// Configure ONNX Web to load WASM binaries from jsDelivr CDN
-ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
+// Configure ONNX Web to load WASM binaries locally
+ort.env.wasm.wasmPaths = '/onnx/';
 ort.env.wasm.numThreads = 1;
 
 export const EMOTIONS = ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise'];
