@@ -215,12 +215,10 @@ export default function LiveCamera() {
             const fw = Math.min(Math.floor(box.width * scaleX), displaySize.width - fx);
             const fh = Math.min(Math.floor(box.height * scaleY), displaySize.height - fy);
             
-            const padX = Math.floor(fw * 0.25);
-            const padY = Math.floor(fh * 0.25);
-            const fxP = Math.max(0, fx - padX);
-            const fyP = Math.max(0, fy - padY);
-            const fwP = Math.min(displaySize.width - fxP, fw + 2 * padX);
-            const fhP = Math.min(displaySize.height - fyP, fh + 2 * padY);
+            const fxP = fx;
+            const fyP = fy;
+            const fwP = fw;
+            const fhP = fh;
             
             ctx.strokeStyle = '#00E676';
             ctx.lineWidth = 3;
@@ -289,13 +287,10 @@ export default function LiveCamera() {
             const fw = Math.min(Math.floor(box.width * scaleX), displaySize.width - fx);
             const fh = Math.min(Math.floor(box.height * scaleY), displaySize.height - fy);
 
-            // Context expansion margin (25% padding)
-            const padX = Math.floor(fw * 0.25);
-            const padY = Math.floor(fh * 0.25);
-            const fxP = Math.max(0, fx - padX);
-            const fyP = Math.max(0, fy - padY);
-            const fwP = Math.min(displaySize.width - fxP, fw + 2 * padX);
-            const fhP = Math.min(displaySize.height - fyP, fh + 2 * padY);
+            const fxP = fx;
+            const fyP = fy;
+            const fwP = fw;
+            const fhP = fh;
 
             if (fwP > 10 && fhP > 10) {
               faceBoxes.push({

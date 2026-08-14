@@ -4,7 +4,7 @@ import * as ort from 'onnxruntime-web';
 ort.env.wasm.wasmPaths = '/onnx/';
 ort.env.wasm.numThreads = 1;
 
-export const EMOTIONS = ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprised', 'neutral'];
+export const EMOTIONS = ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprised'];
 
 let cachedSession = null;
 let sessionLoadingPromise = null;
@@ -56,9 +56,16 @@ export function preprocessImageForOnnx(imageSource, sx, sy, sw, sh, targetSize =
   const float32Data = new Float32Array(3 * numPixels);
 
   for (let i = 0; i < numPixels; i++) {
-    const r = (imgData[i * 4] / 255.0 - mean[0]) / std[0];
-    const g = (imgData[i * 4 + 1] / 255.0 - mean[1]) / std[1];
-    const b = (imgData[i * 4 + 2] / 255.0 - mean[2]) / std[2];
+    const rawR = imgData[i * 4];
+    const rawG = imgData[i * 4 + 1];
+    const rawB = imgData[i * 4 + 2];
+    
+    // Convert to Grayscale to match FER2013 training domain
+    const gray = 0.299 * rawR + 0.587 * rawG + 0.114 * rawB;
+
+    const r = (gray / 255.0 - mean[0]) / std[0];
+    const g = (gray / 255.0 - mean[1]) / std[1];
+    const b = (gray / 255.0 - mean[2]) / std[2];
 
     float32Data[i] = r;
     float32Data[numPixels + i] = g;
