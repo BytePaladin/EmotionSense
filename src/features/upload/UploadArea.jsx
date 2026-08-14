@@ -53,13 +53,11 @@ export default function UploadArea() {
 
     try {
       // 1. Initialize MediaPipe & ONNX
-      const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm"
-      );
+      const vision = await FilesetResolver.forVisionTasks("/mediapipe");
       const [detector] = await Promise.all([
         FaceDetector.createFromOptions(vision, {
           baseOptions: {
-            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+            modelAssetPath: "/models/blaze_face_short_range.tflite",
             delegate: "GPU"
           },
           runningMode: "IMAGE",
