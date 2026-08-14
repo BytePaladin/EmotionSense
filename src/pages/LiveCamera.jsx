@@ -29,6 +29,7 @@ import api from '../api/axios';
 import CoachFeedbackOverlay from '../components/coach/CoachFeedbackOverlay';
 import CoachScoreModal from '../components/coach/CoachScoreModal';
 import { EMOTION_COLORS, getEmotionLabel, getEmotionEmoji } from '../utils/emotionColors';
+import { getEmotionOnnxSession, classifyFaceCrop } from '../utils/onnxInference';
 
 const EMOTION_MAP = {
   neutral: 'neutral',
@@ -89,19 +90,22 @@ export default function LiveCamera() {
         const vision = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm"
         );
-        const detector = await FaceDetector.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
-            delegate: "GPU"
-          },
-          runningMode: "VIDEO",
-          minDetectionConfidence: 0.5
-        });
+        const [detector] = await Promise.all([
+          FaceDetector.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+              delegate: "GPU"
+            },
+            runningMode: "VIDEO",
+            minDetectionConfidence: 0.5
+          }),
+          getEmotionOnnxSession()
+        ]);
         faceDetectorRef.current = detector;
         setIsModelsLoaded(true);
       } catch (err) {
         console.error('Error loading models:', err);
-        setError('Failed to load AI models. Please ensure internet access for MediaPipe.');
+        setError('Failed to load AI models. Please ensure internet access.');
       }
     };
     loadModels();
@@ -256,7 +260,7 @@ export default function LiveCamera() {
     // Start continuous fast rendering loop
     drawLoop();
 
-    // Slower Inference Loop (600ms) for sending frames to backend
+    // Client-Side ML Inference Loop: 1 detection per second (1000ms) with zero server overhead
     detectionIntervalRef.current = setInterval(async () => {
       if (!video || video.paused || video.ended || isProcessingFrameRef.current) return;
       isProcessingFrameRef.current = true;
@@ -273,7 +277,6 @@ export default function LiveCamera() {
         if (results.detections && results.detections.length > 0) {
           const detections = [];
           const timestamp = Number(((Date.now() - startTime) / 1000.0).toFixed(2));
-          const faceBase64List = [];
           const faceBoxes = [];
 
           const scaleX = displaySize.width / video.videoWidth;
@@ -288,7 +291,7 @@ export default function LiveCamera() {
             const fw = Math.min(Math.floor(box.width * scaleX), displaySize.width - fx);
             const fh = Math.min(Math.floor(box.height * scaleY), displaySize.height - fy);
 
-            // Add context expansion margin to preserve forehead, chin, jawline & ears
+            // Context expansion margin (25% padding)
             const padX = Math.floor(fw * 0.25);
             const padY = Math.floor(fh * 0.25);
             const fxP = Math.max(0, fx - padX);
@@ -297,15 +300,16 @@ export default function LiveCamera() {
             const fhP = Math.min(displaySize.height - fyP, fh + 2 * padY);
 
             if (fwP > 10 && fhP > 10) {
-              const cropCanvas = document.createElement('canvas');
-              cropCanvas.width = fwP;
-              cropCanvas.height = fhP;
-              const cropCtx = cropCanvas.getContext('2d');
-              cropCtx.drawImage(video, fxP, fyP, fwP, fhP, 0, 0, fwP, fhP);
-              
-              const dataUrl = cropCanvas.toDataURL('image/jpeg', 0.9);
-              faceBase64List.push(dataUrl);
-              faceBoxes.push({ x: fx, y: fy, w: fw, h: fh });
+              faceBoxes.push({
+                x: fx,
+                y: fy,
+                w: fw,
+                h: fh,
+                cropX: fxP,
+                cropY: fyP,
+                cropW: fwP,
+                cropH: fhP
+              });
             }
           }
 
@@ -341,28 +345,24 @@ export default function LiveCamera() {
             });
             
             trackedFacesRef.current = currentTrackedFaces;
-          }
 
-          if (faceBase64List.length > 0) {
-            try {
-              const res = await api.post('/frame-inference/batch', { faces: faceBase64List });
-              if (res.data?.success && res.data?.data?.detections?.length > 0) {
-                const apiDets = res.data.data.detections;
-                apiDets.forEach((det, idx) => {
-                  const faceId = faceBoxes[idx].face_id;
-                  const newDet = {
-                    timestamp,
-                    emotion: det.emotion || 'neutral',
-                    confidence: det.confidence || 0.9,
-                    face_id: faceId,
-                    box: faceBoxes[idx]
-                  };
-                  detections.push(newDet);
-                  latestEmotionsRef.current[faceId] = newDet;
-                });
+            // Run Client-Side ONNX inference for each detected face crop
+            for (let i = 0; i < faceBoxes.length; i++) {
+              const b = faceBoxes[i];
+              try {
+                const emotionRes = await classifyFaceCrop(video, b.cropX, b.cropY, b.cropW, b.cropH);
+                const newDet = {
+                  timestamp,
+                  emotion: emotionRes.dominantEmotion || 'neutral',
+                  confidence: emotionRes.confidence || 0.9,
+                  face_id: b.face_id,
+                  box: { x: b.x, y: b.y, w: b.w, h: b.h }
+                };
+                detections.push(newDet);
+                latestEmotionsRef.current[b.face_id] = newDet;
+              } catch (onnxErr) {
+                console.error('[Client-Side ONNX Inference Error]:', onnxErr);
               }
-            } catch (apiErr) {
-              console.error('[LiveCamera ONNX Batch Inference Exception]:', apiErr);
             }
           }
 
@@ -392,33 +392,21 @@ export default function LiveCamera() {
             }
           }
         } else {
-          // Full frame fallback
-          const tempCtx = tempCanvas.getContext('2d');
-          tempCtx.drawImage(video, 0, 0, displaySize.width, displaySize.height);
-          tempCanvas.toBlob(async (blob) => {
-            if (blob) {
-              const formData = new FormData();
-              formData.append('file', blob, 'frame.jpg');
-              try {
-                const res = await api.post('/frame-inference', formData);
-                if (res.data?.success && res.data?.data?.detections?.length > 0) {
-                  const apiDets = res.data.data.detections;
-                  const topDet = apiDets[0];
-                  setCurrentLiveEmotion(topDet.emotion || 'neutral');
-                  setCurrentLiveConfidence(topDet.confidence || 0.9);
-                }
-              } catch (e) {
-                console.error('Frame inference fallback error:', e);
-              }
-            }
-          }, 'image/jpeg', 0.85);
+          // Full frame client-side fallback
+          try {
+            const emotionRes = await classifyFaceCrop(video, 0, 0, displaySize.width, displaySize.height);
+            setCurrentLiveEmotion(emotionRes.dominantEmotion || 'neutral');
+            setCurrentLiveConfidence(emotionRes.confidence || 0.9);
+          } catch (e) {
+            console.error('[Client-Side Fallback Error]:', e);
+          }
         }
       } catch (err) {
         console.error('Detection loop iteration error:', err);
       } finally {
         isProcessingFrameRef.current = false;
       }
-    }, 600);
+    }, 1000);
   };
   const handleOverrideEmotion = (targetEmotion) => {
     if (!isSessionActive) return;
