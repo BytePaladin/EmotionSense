@@ -87,9 +87,12 @@ export async function predictEmotionFromTensor(tensor, session) {
   const output = results[sess.outputNames[0]];
   const logits = Array.from(output.data);
 
-  // Softmax with numerical stability
+  // Softmax with numerical stability and Temperature Scaling
+  // FER models often output very under-confident logits (e.g., max logit is only 0.5).
+  // A temperature < 1.0 artificially sharpens the probabilities so the dominant emotion stands out.
+  const TEMPERATURE = 0.3; 
   const maxLogit = Math.max(...logits);
-  const expScores = logits.map((l) => Math.exp(l - maxLogit));
+  const expScores = logits.map((l) => Math.exp((l - maxLogit) / TEMPERATURE));
   const sumExp = expScores.reduce((a, b) => a + b, 0);
   const probs = expScores.map((e) => e / sumExp);
 
