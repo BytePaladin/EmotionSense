@@ -89,9 +89,9 @@ export default function UploadArea() {
           const fw = Math.min(Math.floor(box.width), img.naturalWidth - fx);
           const fh = Math.min(Math.floor(box.height), img.naturalHeight - fy);
 
-          // 25% context padding
-          const padX = Math.floor(fw * 0.25);
-          const padY = Math.floor(fh * 0.25);
+          // 15% context padding for EfficientNet
+          const padX = Math.floor(fw * 0.15);
+          const padY = Math.floor(fh * 0.15);
           const fxP = Math.max(0, fx - padX);
           const fyP = Math.max(0, fy - padY);
           const fwP = Math.min(img.naturalWidth - fxP, fw + 2 * padX);

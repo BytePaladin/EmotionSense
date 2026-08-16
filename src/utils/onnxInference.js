@@ -10,7 +10,7 @@ let cachedSession = null;
 let sessionLoadingPromise = null;
 
 /**
- * Initializes and caches the ONNX Runtime Web session for the 9MB MobileNetV2 Emotion model.
+ * Initializes and caches the ONNX Runtime Web session for the EfficientNet-B0 Emotion model.
  */
 export async function getEmotionOnnxSession() {
   if (cachedSession) return cachedSession;
@@ -18,13 +18,15 @@ export async function getEmotionOnnxSession() {
 
   sessionLoadingPromise = (async () => {
     try {
-      const session = await ort.InferenceSession.create('/models/mobilenetv2_emotion.onnx', {
+      // NOTE: We are keeping '/models/mobilenetv2_emotion.onnx' in the folder as a backup, 
+      // but actively loading the new EfficientNet model for inference.
+      const session = await ort.InferenceSession.create('/models/efficientnet_b0_emotion.onnx', {
         executionProviders: ['wasm']
       });
       cachedSession = session;
       return session;
     } catch (err) {
-      console.error('[ONNX Web] Failed to load mobilenetv2_emotion.onnx:', err);
+      console.error('[ONNX Web] Failed to load efficientnet_b0_emotion.onnx:', err);
       sessionLoadingPromise = null;
       throw err;
     }
@@ -34,7 +36,7 @@ export async function getEmotionOnnxSession() {
 }
 
 /**
- * Preprocesses an image, video frame, or canvas crop for MobileNetV2 ImageNet input.
+ * Preprocesses an image, video frame, or canvas crop for EfficientNet ImageNet input.
  * Extracts RGB values, normalizes with ImageNet mean/std, and converts to CHW planar format.
  */
 export function preprocessImageForOnnx(imageSource, sx, sy, sw, sh, targetSize = 224) {
@@ -60,12 +62,10 @@ export function preprocessImageForOnnx(imageSource, sx, sy, sw, sh, targetSize =
     const rawG = imgData[i * 4 + 1];
     const rawB = imgData[i * 4 + 2];
     
-    // Convert to Grayscale to match FER2013 training domain
-    const gray = 0.299 * rawR + 0.587 * rawG + 0.114 * rawB;
-
-    const r = (gray / 255.0 - mean[0]) / std[0];
-    const g = (gray / 255.0 - mean[1]) / std[1];
-    const b = (gray / 255.0 - mean[2]) / std[2];
+    // EfficientNet uses full RGB color normalized via ImageNet standards
+    const r = (rawR / 255.0 - mean[0]) / std[0];
+    const g = (rawG / 255.0 - mean[1]) / std[1];
+    const b = (rawB / 255.0 - mean[2]) / std[2];
 
     float32Data[i] = r;
     float32Data[numPixels + i] = g;
@@ -93,23 +93,38 @@ export async function predictEmotionFromTensor(tensor, session) {
   const sumExp = expScores.reduce((a, b) => a + b, 0);
   const probs = expScores.map((e) => e / sumExp);
 
-  let maxIdx = 0;
-  let maxScore = -1;
+  // Standard AffectNet/FER-2013 labels. (If model outputs 8, the 8th is contempt)
+  const MODEL_LABELS = ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprised', 'neutral', 'contempt'];
+  
+  const allEmotionsRaw = probs.map((prob, idx) => ({
+    emotion: MODEL_LABELS[idx] || 'neutral',
+    confidence: prob
+  }));
 
-  const allEmotions = EMOTIONS.map((emotion, idx) => {
-    const score = probs[idx];
-    if (score > maxScore) {
-      maxScore = score;
-      maxIdx = idx;
+  // Map 'contempt' to 'neutral' as requested by the user, and ensure exact naming matches backend
+  const emotionMap = {};
+  EMOTIONS.forEach(e => emotionMap[e] = 0); // Initialize all 7 backend emotions to 0
+
+  allEmotionsRaw.forEach(item => {
+    let mappedName = item.emotion;
+    if (mappedName === 'contempt') mappedName = 'neutral';
+    if (mappedName === 'surprise') mappedName = 'surprised'; // just in case
+    
+    if (emotionMap.hasOwnProperty(mappedName)) {
+      emotionMap[mappedName] += item.confidence;
     }
-    return { emotion, confidence: Number(score.toFixed(4)) };
   });
+
+  const allEmotions = Object.keys(emotionMap).map(emotion => ({
+    emotion,
+    confidence: Number(emotionMap[emotion].toFixed(4))
+  }));
 
   allEmotions.sort((a, b) => b.confidence - a.confidence);
 
   return {
-    dominantEmotion: EMOTIONS[maxIdx],
-    confidence: Number(maxScore.toFixed(4)),
+    dominantEmotion: allEmotions[0].emotion,
+    confidence: allEmotions[0].confidence,
     allEmotions
   };
 }
