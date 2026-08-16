@@ -62,10 +62,15 @@ export function preprocessImageForOnnx(imageSource, sx, sy, sw, sh, targetSize =
     const rawG = imgData[i * 4 + 1];
     const rawB = imgData[i * 4 + 2];
     
-    // EfficientNet uses full RGB color normalized via ImageNet standards
-    const r = (rawR / 255.0 - mean[0]) / std[0];
-    const g = (rawG / 255.0 - mean[1]) / std[1];
-    const b = (rawB / 255.0 - mean[2]) / std[2];
+    // CRITICAL FIX: FER-2013 is a grayscale dataset. The EfficientNet model was forced 
+    // to accept 3 channels during training by duplicating the grayscale channel 3 times.
+    // If we feed it full color from the webcam, the model gets confused by the color variations.
+    // We must convert to grayscale first, then duplicate it across RGB.
+    const gray = (0.299 * rawR + 0.587 * rawG + 0.114 * rawB) / 255.0;
+
+    const r = (gray - mean[0]) / std[0];
+    const g = (gray - mean[1]) / std[1];
+    const b = (gray - mean[2]) / std[2];
 
     float32Data[i] = r;
     float32Data[numPixels + i] = g;
