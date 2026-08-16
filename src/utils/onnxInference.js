@@ -115,6 +115,18 @@ export async function predictEmotionFromTensor(tensor, session) {
     }
   });
 
+  // --- Bias Correction Heuristic ---
+  // FER models notoriously confuse neutral faces as sad. 
+  // We apply a mathematical penalty to sad and boost to neutral to shift the decision boundary.
+  emotionMap['sad'] *= 0.65;
+  emotionMap['neutral'] *= 1.3;
+
+  // Re-normalize probabilities so they sum to 1.0 again
+  const totalConf = Object.values(emotionMap).reduce((acc, val) => acc + val, 0);
+  Object.keys(emotionMap).forEach(key => {
+    emotionMap[key] /= (totalConf || 1);
+  });
+
   const allEmotions = Object.keys(emotionMap).map(emotion => ({
     emotion,
     confidence: Number(emotionMap[emotion].toFixed(4))
